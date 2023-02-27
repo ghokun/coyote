@@ -8,6 +8,11 @@ builds:
       - linux
       - windows
       - darwin
+    goarch:
+      - amd64
+      - arm64
+    goamd64:
+      - v3
 
 archives:
   - format: tar.gz
@@ -32,16 +37,12 @@ changelog:
 
 brews:
   - name: coyote
+    goamd64: v3
     tap:
       owner: ghokun
       name: homebrew-tap
       branch: main
       token: "{{ .Env.GORELEASER_HOMEBREW_GITHUB_TOKEN }}"
-    download_strategy: CurlDownloadStrategy
-    commit_author:
-      name: goreleaserbot
-      email: bot@goreleaser.com
-    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
     folder: Formula
     homepage: "https://github.com/ghokun/coyote"
     description: "Coyote is a RabbitMQ message sink."
