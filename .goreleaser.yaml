@@ -8,9 +8,7 @@ builds:
       - linux
       - windows
       - darwin
-    goarch:
-      - amd64
-      - arm64
+
 archives:
   - format: tar.gz
     name_template: >-
@@ -34,7 +32,6 @@ changelog:
 
 brews:
   - name: coyote
-    goamd64: v3
     tap:
       owner: ghokun
       name: homebrew-tap
