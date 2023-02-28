@@ -27,6 +27,6 @@ jobs:
           version: latest
           args: release --clean
         env:
-          RELEASE_VERSION: ${{ github.ref_name }}"
+          RELEASE_VERSION: ${{ github.ref_name }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_HOMEBREW_GITHUB_TOKEN: ${{ secrets.GORELEASER_HOMEBREW_GITHUB_TOKEN }}
