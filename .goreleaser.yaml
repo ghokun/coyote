@@ -13,6 +13,8 @@ builds:
       - arm64
     goamd64:
       - v3
+    ldflags:
+      - -s -w -X 'main.Version={{ .Env.RELEASE_VERSION }}'
 
 archives:
   - format: tar.gz
@@ -42,7 +44,7 @@ brews:
       owner: ghokun
       name: homebrew-tap
       branch: main
-      token: "{{ .Env.GORELEASER_HOMEBREW_GITHUB_TOKEN }}"
+      token: '{{ .Env.GORELEASER_HOMEBREW_GITHUB_TOKEN }}'
     folder: Formula
     homepage: "https://github.com/ghokun/coyote"
     description: "Coyote is a RabbitMQ message sink."

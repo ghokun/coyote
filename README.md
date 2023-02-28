@@ -11,16 +11,26 @@ brew install ghokun/tap/coyote
 ## Usage
 
 ```shell
-Usage of coyote:
-  -bind string
-        Routing key to bind. (default "#")
-  -exchange string
-        Exchange name to listen messages.
-  -queue string
-        Interceptor queue name. (default "interceptor")
-  -url string
-        RabbitMQ url, must start with amqps:// or amqp://.
+NAME:
+   coyote - Coyote is a RabbitMQ message sink.
+
+USAGE:
+   coyote [global options] command [command options] [arguments...]
+
+VERSION:
+   development
+
+COMMANDS:
+   help, h  Shows a list of commands or help for one command
+
+GLOBAL OPTIONS:
+   --url value       RabbitMQ url, must start with amqps:// or amqp://.
+   --exchange value  Exchange name to listen messages.
+   --queue value     Interceptor queue name. (default: "interceptor")
+   --bind value      Routing key to bind. (default: "#")
+   --help, -h        show help
+   --version, -v     print the version
 
 # Example
-coyote -url amqp://guest:guest@localhost -exchange your_exchange
+coyote --url amqp://guest:guest@localhost --exchange your_exchange
 ```
