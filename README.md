@@ -1,6 +1,6 @@
 # Coyote
 
-Coyote is a RabbitMQ message sink.
+Coyote is a RabbitMQ message sink. The default routing key is `#` so every message in the given `exchange` is routed to a ephemeral `interceptor` queue.
 
 ## Install
 
