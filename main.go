@@ -1,18 +1,39 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
 	cli "github.com/urfave/cli/v2"
 )
 
+const exitCodeInterrupt = 2
+
 var Version = "development"
 
 func main() {
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt)
+	defer func() {
+		signal.Stop(signalChan)
+		cancel()
+	}()
+	go func() {
+		select {
+		case <-signalChan:
+			cancel()
+		case <-ctx.Done():
+		}
+		<-signalChan
+		os.Exit(exitCodeInterrupt)
+	}()
 	app := &cli.App{
 		Name:    "coyote",
 		Usage:   "Coyote is a RabbitMQ message sink.",
@@ -68,7 +89,6 @@ func main() {
 				return fmt.Errorf("failed to register a consumer: %w", err)
 			}
 
-			var forever chan struct{}
 			go func() {
 				for d := range msgs {
 					log.Printf("📧 Received a message on queue %s: %s", d.RoutingKey, d.Body)
@@ -76,11 +96,11 @@ func main() {
 			}()
 
 			log.Printf("⏳ Waiting for messages. To exit press CTRL+C")
-			<-forever
+			<-ctx.Done()
 			return nil
 		},
 	}
-	if err := app.Run(os.Args); err != nil {
+	if err := app.RunContext(ctx, os.Args); err != nil {
 		log.Fatal(err)
 	}
 }
