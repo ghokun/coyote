@@ -5,10 +5,12 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"os/signal"
 
 	"github.com/google/uuid"
+	"github.com/manifoldco/promptui"
 	amqp "github.com/rabbitmq/amqp091-go"
 	cli "github.com/urfave/cli/v2"
 )
@@ -26,6 +28,7 @@ func main() {
 		signal.Stop(signalChan)
 		cancel()
 	}()
+
 	go func() {
 		select {
 		case <-signalChan:
@@ -35,6 +38,7 @@ func main() {
 		<-signalChan
 		os.Exit(exitCodeInterrupt)
 	}()
+
 	app := &cli.App{
 		Name:    "coyote",
 		Usage:   "Coyote is a RabbitMQ message sink.",
@@ -64,9 +68,30 @@ func main() {
 				Name:  "insecure",
 				Usage: "Skips certificate verification",
 			},
+			&cli.BoolFlag{
+				Name:  "noprompt",
+				Usage: "Disables password prompt",
+			},
 		},
 		Action: func(ctx *cli.Context) error {
-			conn, err := amqp.DialTLS(ctx.String("url"), &tls.Config{InsecureSkipVerify: ctx.Bool("insecure")})
+			u, err := url.Parse(ctx.String("url"))
+			if err != nil {
+				return fmt.Errorf("failed to parse provided url: %w", err)
+			}
+
+			if !ctx.Bool("noprompt") {
+				prompt := promptui.Prompt{
+					Label: "Password",
+					Mask:  '*',
+				}
+				password, err := prompt.Run()
+				if err != nil {
+					return fmt.Errorf("failed to provide password: %w", err)
+				}
+				u.User = url.UserPassword(u.User.String(), password)
+			}
+
+			conn, err := amqp.DialTLS(u.String(), &tls.Config{InsecureSkipVerify: ctx.Bool("insecure")})
 			if err != nil {
 				return fmt.Errorf("failed to connect to RabbitMQ: %w", err)
 			}
@@ -105,6 +130,7 @@ func main() {
 			return nil
 		},
 	}
+
 	if err := app.RunContext(ctx, os.Args); err != nil {
 		log.Fatal(err)
 	}

@@ -29,6 +29,7 @@ GLOBAL OPTIONS:
    --queue value     Interceptor queue name. (default: "interceptor")
    --bind value      Routing key to bind. (default: "#")
    --insecure        Skips certificate verification (default: false)
+   --noprompt        Disables password prompt (default: false)
    --help, -h        show help
    --version, -v     print the version
 
