@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"os"
@@ -59,9 +60,13 @@ func main() {
 				Value: "#",
 				Usage: "Routing key to bind.",
 			},
+			&cli.BoolFlag{
+				Name:  "insecure",
+				Usage: "Skips certificate verification",
+			},
 		},
 		Action: func(ctx *cli.Context) error {
-			conn, err := amqp.Dial(ctx.String("url"))
+			conn, err := amqp.DialTLS(ctx.String("url"), &tls.Config{InsecureSkipVerify: ctx.Bool("insecure")})
 			if err != nil {
 				return fmt.Errorf("failed to connect to RabbitMQ: %w", err)
 			}
