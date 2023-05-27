@@ -32,6 +32,9 @@ GLOBAL OPTIONS:
    --insecure        Skips certificate verification. (default: false)
    --noprompt        Disables password prompt. (default: false)
    --nopassive       Declares queue actively. (default: false)
+   --rootca value    Root certificate path
+   --cert value      Client certificate path
+   --key value       Client certificate key path
    --help, -h        show help
    --version, -v     print the version
 
