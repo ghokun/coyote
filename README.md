@@ -26,15 +26,10 @@ COMMANDS:
 GLOBAL OPTIONS:
    --url value       RabbitMQ url, must start with amqps:// or amqp://.
    --exchange value  Exchange name to listen messages.
-   --type value      Exchange type. Valid values are direct, fanout, topic and headers. (default: "topic")
-   --bind value      Routing key to bind. Binds to all queues if not provided. (default: "#")
    --queue value     Interceptor queue name. (default: "interceptor")
-   --insecure        Skips certificate verification. (default: false)
-   --noprompt        Disables password prompt. (default: false)
-   --nopassive       Declares queue actively. (default: false)
-   --rootca value    Root certificate path
-   --cert value      Client certificate path
-   --key value       Client certificate key path
+   --bind value      Routing key to bind. (default: "#")
+   --insecure        Skips certificate verification (default: false)
+   --noprompt        Disables password prompt (default: false)
    --help, -h        show help
    --version, -v     print the version
 
