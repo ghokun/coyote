@@ -18,8 +18,6 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-const exitCodeInterrupt = 2
-
 var Version = "development"
 
 func main() {
@@ -39,7 +37,7 @@ func main() {
 		case <-ctx.Done():
 		}
 		<-signalChan
-		os.Exit(exitCodeInterrupt)
+		os.Exit(2)
 	}()
 
 	app := &cli.App{
@@ -145,10 +143,10 @@ func main() {
 						log.Fatal(err)
 					}
 					defer db.Close()
-					statement, err := db.Prepare(`CREATE TABLE event
+					statement, err := db.Prepare(`CREATE TABLE event 
 					(
 					  "id"             INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-					  "timestamp"      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+					  "timestamp"      TIMESTAMP DEFAULT (DATETIME(CURRENT_TIMESTAMP, 'localtime')),
 					  "routing_key"    TEXT,
 					  "correlation_id" TEXT,
 					  "reply_to"       TEXT,
@@ -180,8 +178,10 @@ func main() {
 						d.Headers,
 						color.GreenString("# Body            : "),
 						d.Body)
-					if _, err := insert.Exec(d.RoutingKey, d.CorrelationId, d.ReplyTo, fmt.Sprint(d.Headers), string(d.Body)); err != nil {
-						log.Fatal(err)
+					if insert != nil {
+						if _, err := insert.Exec(d.RoutingKey, d.CorrelationId, d.ReplyTo, fmt.Sprint(d.Headers), string(d.Body)); err != nil {
+							log.Fatal(err)
+						}
 					}
 				}
 			}()
