@@ -28,11 +28,12 @@ GLOBAL OPTIONS:
    --exchange value  Exchange name to listen messages.
    --queue value     Interceptor queue name. (default: "interceptor")
    --bind value      Routing key to bind. (default: "#")
+   --store value     SQLite filename to store events.
    --insecure        Skips certificate verification (default: false)
    --noprompt        Disables password prompt (default: false)
    --help, -h        show help
    --version, -v     print the version
 
 # Example
-coyote --url amqp://guest:guest@localhost --exchange your_exchange
+coyote --url amqp://guest:guest@localhost --exchange your_exchange --noprompt --store events.sqlite
 ```
