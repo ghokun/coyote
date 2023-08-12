@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"database/sql"
 	"fmt"
 	"log"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/google/uuid"
 	"github.com/manifoldco/promptui"
+	_ "github.com/mattn/go-sqlite3"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/urfave/cli/v2"
 )
@@ -65,6 +67,10 @@ func main() {
 				Value: "#",
 				Usage: "Routing key to bind.",
 			},
+			&cli.StringFlag{
+				Name:  "store",
+				Usage: "SQLite filename to store events.",
+			},
 			&cli.BoolFlag{
 				Name:  "insecure",
 				Usage: "Skips certificate verification",
@@ -113,17 +119,55 @@ func main() {
 			if err != nil {
 				return fmt.Errorf("%s %w", color.RedString("failed to declare a queue:"), err)
 			}
+
 			err = ch.QueueBind(q.Name, ctx.String("bind"), ctx.String("exchange"), false, nil)
 			if err != nil {
 				return fmt.Errorf("%s %w", color.RedString("failed to bind to queue:"), err)
 			}
-			msgs, err := ch.Consume(q.Name, "", true, false, false, false, nil)
+
+			deliveries, err := ch.Consume(q.Name, "", true, false, false, false, nil)
 			if err != nil {
 				return fmt.Errorf("%s %w", color.RedString("failed to register a consumer:"), err)
 			}
 
 			go func() {
-				for d := range msgs {
+				var db *sql.DB
+				var insert *sql.Stmt
+				if ctx.IsSet("store") {
+					filename := ctx.String("store")
+					file, err := os.Create(filename)
+					if err != nil {
+						log.Fatal(err)
+					}
+					file.Close()
+					db, err = sql.Open("sqlite3", filename)
+					if err != nil {
+						log.Fatal(err)
+					}
+					defer db.Close()
+					statement, err := db.Prepare(`CREATE TABLE event
+					(
+					  "id"             INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+					  "timestamp"      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+					  "routing_key"    TEXT,
+					  "correlation_id" TEXT,
+					  "reply_to"       TEXT,
+					  "headers"        TEXT,
+					  "body"           TEXT
+					);`)
+					if err != nil {
+						log.Fatal(err)
+					}
+					if _, err := statement.Exec(); err != nil {
+						log.Fatal(err)
+					}
+					insert, err = db.Prepare(`INSERT INTO event(routing_key, correlation_id, reply_to, headers, body) 
+					VALUES (?, ?, ?, ?, ?)`)
+					if err != nil {
+						log.Fatal(err)
+					}
+				}
+				for d := range deliveries {
 					log.Printf("📧 %s\n%s%s\n%s%s\n%s%s\n%s%s\n%s%s",
 						color.YellowString("Received a message"),
 						color.GreenString("# Routing-key     : "),
@@ -136,6 +180,9 @@ func main() {
 						d.Headers,
 						color.GreenString("# Body            : "),
 						d.Body)
+					if _, err := insert.Exec(d.RoutingKey, d.CorrelationId, d.ReplyTo, fmt.Sprint(d.Headers), string(d.Body)); err != nil {
+						log.Fatal(err)
+					}
 				}
 			}()
 

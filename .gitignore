@@ -1,3 +1,4 @@
+coyote
 # Created by https://www.toptal.com/developers/gitignore/api/go,linux,macos,windows,visualstudiocode,goland+all
 # Edit at https://www.toptal.com/developers/gitignore?templates=go,linux,macos,windows,visualstudiocode,goland+all
 
@@ -135,7 +136,6 @@ fabric.properties
 
 # Icon must end with two \r
 Icon
-
 
 # Thumbnails
 ._*
