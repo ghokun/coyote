@@ -3,7 +3,7 @@ module github.com/ghokun/coyote
 go 1.21
 
 require (
-	github.com/google/uuid v1.3.0
+	github.com/google/uuid v1.3.1
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/rabbitmq/amqp091-go v1.8.1
 	github.com/urfave/cli/v2 v2.25.7
