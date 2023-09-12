@@ -14,9 +14,9 @@ import (
 	"github.com/fatih/color"
 	"github.com/google/uuid"
 	"github.com/manifoldco/promptui"
-	_ "github.com/mattn/go-sqlite3"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/urfave/cli/v2"
+	_ "modernc.org/sqlite"
 )
 
 var Version = "development"
@@ -221,7 +221,7 @@ func main() {
 						log.Fatal(err)
 					}
 					file.Close()
-					db, err = sql.Open("sqlite3", filename)
+					db, err = sql.Open("sqlite", filename)
 					if err != nil {
 						log.Fatal(err)
 					}
