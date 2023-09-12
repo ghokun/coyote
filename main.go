@@ -21,8 +21,7 @@ import (
 
 var Version = "development"
 
-const (
-	usage = `coyote [global options]
+const usage = `coyote [global options]
 
 Examples:
 coyote --url amqps://user@myurl --exchange myexchange --store events.sqlite
@@ -36,7 +35,6 @@ Exchange binding formats:
  --exchange myexchange1,myexchange2               # All messages in multiple exchanges
  --exchange myexchange1=mykey1,myexchange2=mykey2 # Messages with routing keys in multiple exchanges
  --exchange myexchange1,myexchange2=mykey2        # Messages with or without routing keys in multiple exchanges`
-)
 
 type listen struct {
 	c []combination
