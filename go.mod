@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/google/uuid v1.4.0
 	github.com/rabbitmq/amqp091-go v1.9.0
-	github.com/urfave/cli/v2 v2.25.7
+	github.com/urfave/cli/v2 v2.26.0
 )
 
 require (
