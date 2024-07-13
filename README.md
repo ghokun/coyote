@@ -31,7 +31,7 @@ USAGE:
     --exchange myexchange1,myexchange2=mykey2        # Messages with or without routing keys in multiple exchanges
 
 VERSION:
-   v0.10.0
+   v0.14.0
 
 COMMANDS:
    help, h  Shows a list of commands or help for one command
@@ -41,8 +41,9 @@ GLOBAL OPTIONS:
    --exchange value  Exchange & routing key combinations to listen messages.
    --queue value     Interceptor queue name. (default: "interceptor")
    --store value     SQLite filename to store events.
-   --insecure        Skips certificate verification (default: false)
-   --noprompt        Disables password prompt (default: false)
+   --insecure        Skips certificate verification. (default: false)
+   --noprompt        Disables password prompt. (default: false)
+   --silent          Disables terminal print. (default: false)
    --help, -h        show help
    --version, -v     print the version
 ```
