@@ -121,11 +121,15 @@ func main() {
 			},
 			&cli.BoolFlag{
 				Name:  "insecure",
-				Usage: "Skips certificate verification",
+				Usage: "Skips certificate verification.",
 			},
 			&cli.BoolFlag{
 				Name:  "noprompt",
-				Usage: "Disables password prompt",
+				Usage: "Disables password prompt.",
+			},
+			&cli.BoolFlag{
+				Name:  "silent",
+				Usage: "Disables terminal print.",
 			},
 		},
 		Action: func(ctx *cli.Context) error {
@@ -150,13 +154,25 @@ func main() {
 			if err != nil {
 				return fmt.Errorf("%s %w", color.RedString("failed to connect to RabbitMQ:"), err)
 			}
-			defer conn.Close()
+			defer func() {
+				err := conn.Close()
+				if err != nil {
+					log.Fatal(err)
+				}
+				log.Printf("💔 Terminating AMQP connection")
+			}()
 
 			ch, err := conn.Channel()
 			if err != nil {
 				return fmt.Errorf("%s %w", color.RedString("failed to open a channel:"), err)
 			}
-			defer ch.Close()
+			defer func() {
+				err := ch.Close()
+				if err != nil {
+					log.Fatal(err)
+				}
+				log.Printf("💔 Terminating AMQP channel")
+			}()
 
 			q, err := ch.QueueDeclare(
 				fmt.Sprintf("%s.%s", ctx.String("queue"), uuid.NewString()), // queue name
@@ -221,12 +237,19 @@ func main() {
 						log.Fatal(err)
 					}
 					file.Close()
-					db, err = sql.Open("sqlite", filename)
+					db, err = sql.Open("sqlite", filename+"?_txlock=exclusive")
 					if err != nil {
 						log.Fatal(err)
 					}
-					defer db.Close()
-					statement, err := db.Prepare(`CREATE TABLE event 
+					defer func() {
+						err := db.Close()
+						if err != nil {
+							log.Fatal(err)
+						}
+						log.Printf("💔 Closing database connection")
+					}()
+
+					create, err := db.Prepare(`CREATE TABLE event 
 					(
 					  "id"             INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					  "timestamp"      TIMESTAMP DEFAULT (DATETIME(CURRENT_TIMESTAMP, 'localtime')),
@@ -240,7 +263,7 @@ func main() {
 					if err != nil {
 						log.Fatal(err)
 					}
-					if _, err := statement.Exec(); err != nil {
+					if _, err := create.Exec(); err != nil {
 						log.Fatal(err)
 					}
 					insert, err = db.Prepare(`INSERT INTO event(exchange, routing_key, correlation_id, reply_to, headers, body) 
@@ -249,25 +272,32 @@ func main() {
 						log.Fatal(err)
 					}
 				}
+				count := 0
 				for d := range deliveries {
-					log.Printf("📧 %s\n%s%s\n%s%s\n%s%s\n%s%s\n%s%s\n%s%s",
-						color.YellowString("Received a message"),
-						color.GreenString("# Exchange        : "),
-						d.Exchange,
-						color.GreenString("# Routing-key     : "),
-						d.RoutingKey,
-						color.GreenString("# Correlation-id  : "),
-						d.CorrelationId,
-						color.GreenString("# Reply-to        : "),
-						d.ReplyTo,
-						color.GreenString("# Headers         : "),
-						d.Headers,
-						color.GreenString("# Body            : "),
-						d.Body)
 					if insert != nil {
 						if _, err := insert.Exec(d.Exchange, d.RoutingKey, d.CorrelationId, d.ReplyTo, fmt.Sprint(d.Headers), string(d.Body)); err != nil {
 							log.Fatal(err)
 						}
+					}
+					if !ctx.Bool("silent") {
+						log.Printf("📧 %s\n%s%s\n%s%s\n%s%s\n%s%s\n%s%s\n%s%s",
+							color.YellowString("Received a message"),
+							color.GreenString("# Exchange        : "),
+							d.Exchange,
+							color.GreenString("# Routing-key     : "),
+							d.RoutingKey,
+							color.GreenString("# Correlation-id  : "),
+							d.CorrelationId,
+							color.GreenString("# Reply-to        : "),
+							d.ReplyTo,
+							color.GreenString("# Headers         : "),
+							d.Headers,
+							color.GreenString("# Body            : "),
+							d.Body)
+					} else {
+						count++
+						fmt.Printf("\033[1A\033[K")
+						log.Printf("💾 Consumed %s messages. To exit press %s", color.GreenString("%d", count), color.YellowString("CTRL+C"))
 					}
 				}
 			}()
