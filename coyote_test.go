@@ -11,7 +11,6 @@ import (
 
 	"github.com/andreyvit/diff"
 	"github.com/cucumber/godog"
-	"github.com/testcontainers/testcontainers-go/modules/rabbitmq"
 )
 
 type ctxKey struct{}
@@ -37,23 +36,6 @@ func InitializeTestSuite(ctx *godog.TestSuiteContext) {
 	if err := cmd.Run(); err != nil {
 		log.Fatal(err)
 	}
-
-	bg := context.Background()
-	rabbitmqContainer, err := rabbitmq.Run(bg,
-		"rabbitmq:3.12.11-management-alpine",
-		rabbitmq.WithAdminUsername("admin"),
-		rabbitmq.WithAdminPassword("password"),
-	)
-	if err != nil {
-		log.Fatalf("failed to start container: %s", err)
-	}
-
-	// Clean up the container
-	defer func() {
-		if err := rabbitmqContainer.Terminate(bg); err != nil {
-			log.Fatalf("failed to terminate container: %s", err)
-		}
-	}()
 
 	ctx.AfterSuite(func() {
 		err := os.Remove("coyote")

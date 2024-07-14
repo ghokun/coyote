@@ -8,12 +8,12 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [macos-13, ubuntu-latest]
+        os: [macos-latest, macos-13, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: Homebrew/actions/setup-homebrew@master
-      - if: startsWith(runner.os, 'macos')
-        uses: douglascamata/setup-docker-macos-action@main
+      - run: brew install rabbitmq
+      - run: brew services start rabbitmq
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
