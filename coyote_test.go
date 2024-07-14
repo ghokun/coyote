@@ -6,10 +6,12 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/andreyvit/diff"
 	"github.com/cucumber/godog"
+	"github.com/testcontainers/testcontainers-go/modules/rabbitmq"
 )
 
 type ctxKey struct{}
@@ -36,6 +38,23 @@ func InitializeTestSuite(ctx *godog.TestSuiteContext) {
 		log.Fatal(err)
 	}
 
+	bg := context.Background()
+	rabbitmqContainer, err := rabbitmq.Run(bg,
+		"rabbitmq:3.12.11-management-alpine",
+		rabbitmq.WithAdminUsername("admin"),
+		rabbitmq.WithAdminPassword("password"),
+	)
+	if err != nil {
+		log.Fatalf("failed to start container: %s", err)
+	}
+
+	// Clean up the container
+	defer func() {
+		if err := rabbitmqContainer.Terminate(bg); err != nil {
+			log.Fatalf("failed to terminate container: %s", err)
+		}
+	}()
+
 	ctx.AfterSuite(func() {
 		err := os.Remove("coyote")
 		if err != nil {
@@ -49,9 +68,11 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Given(`^brew is present$`, brewIsPresent)
 
 	ctx.When(`^coyote is run with help option$`, coyoteIsRunWithHelpOption)
+	ctx.When(`^coyote is run with version option$`, coyoteIsRunWithVersionOption)
 	ctx.When(`^"(.+)" is installed using brew$`, formulaIsInstalledUsingBrew)
 
 	ctx.Then(`^help message is printed$`, helpMessageIsPrinted)
+	ctx.Then(`^version message is printed$`, versionMessageIsPrinted)
 	ctx.Then(`^coyote is installed$`, coyoteIsInstalled)
 }
 
@@ -73,6 +94,14 @@ func coyoteIsRunWithHelpOption(ctx context.Context) (context.Context, error) {
 	return context.WithValue(ctx, ctxKey{}, string(out)), nil
 }
 
+func coyoteIsRunWithVersionOption(ctx context.Context) (context.Context, error) {
+	out, err := exec.Command("./coyote", "-v").Output()
+	if err != nil {
+		return ctx, err
+	}
+	return context.WithValue(ctx, ctxKey{}, string(out)), nil
+}
+
 func formulaIsInstalledUsingBrew(formula string) error {
 	cmd := exec.Command("brew", "install", formula)
 	if err := cmd.Run(); err != nil {
@@ -82,12 +111,19 @@ func formulaIsInstalledUsingBrew(formula string) error {
 }
 
 func helpMessageIsPrinted(ctx context.Context) error {
-	actualOutput := ctx.Value(ctxKey{}).(string)
-
-	if actualOutput == expectedOutput {
+	actualOutput := strings.TrimRight(ctx.Value(ctxKey{}).(string), "\n")
+	if actualOutput == expectedHelpOutput {
 		return nil
 	}
-	return fmt.Errorf("Result not as expected:\n%v", diff.LineDiff(expectedOutput, actualOutput))
+	return fmt.Errorf("Result not as expected:\n%v", diff.LineDiff(expectedHelpOutput, actualOutput))
+}
+
+func versionMessageIsPrinted(ctx context.Context) error {
+	actualOutput := strings.TrimRight(ctx.Value(ctxKey{}).(string), "\n")
+	if actualOutput == expectedVersionOutput {
+		return nil
+	}
+	return fmt.Errorf("Result not as expected:\n%v", diff.LineDiff(expectedVersionOutput, actualOutput))
 }
 
 func coyoteIsInstalled() error {
@@ -95,7 +131,9 @@ func coyoteIsInstalled() error {
 	return err
 }
 
-const expectedOutput = `NAME:
+const (
+	expectedVersionOutput = `coyote version development`
+	expectedHelpOutput    = `NAME:
    coyote - Coyote is a RabbitMQ message sink.
 
 USAGE:
@@ -129,5 +167,5 @@ GLOBAL OPTIONS:
    --noprompt        Disables password prompt. (default: false)
    --silent          Disables terminal print. (default: false)
    --help, -h        show help
-   --version, -v     print the version
-`
+   --version, -v     print the version`
+)
