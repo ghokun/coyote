@@ -28,4 +28,4 @@ jobs:
       - uses: restqa/gherkin-linter-action@0.0.1
         with:
           path: "features/"
-          config: "features/.gherkin-lintrc"
+          config_file: "features/.gherkin-lintrc"
