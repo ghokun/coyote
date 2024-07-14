@@ -9,11 +9,9 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, macos-13, ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - uses: Homebrew/actions/setup-homebrew@master
-      - run: brew install rabbitmq
-      - run: brew services start rabbitmq
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
