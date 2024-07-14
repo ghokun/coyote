@@ -6,7 +6,6 @@ permissions:
 
 jobs:
   test:
-    name: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,6 +13,6 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
-          go-version: latest
+          go-version: stable
           cache: true
       - run: go test

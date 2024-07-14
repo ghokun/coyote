@@ -6,15 +6,16 @@ permissions:
 
 jobs:
   golangci-lint:
-    name: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version: stable
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+          cache: true
+      - uses: golangci/golangci-lint-action@v6
         with:
           args: --timeout=5m
           version: latest

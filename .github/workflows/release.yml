@@ -17,7 +17,7 @@ jobs:
       - run: git fetch --force --tags
       - uses: actions/setup-go@v5
         with:
-          go-version: latest
+          go-version: stable
           cache: true
       - uses: goreleaser/goreleaser-action@v6
         with:
