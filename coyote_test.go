@@ -45,13 +45,23 @@ func InitializeTestSuite(ctx *godog.TestSuiteContext) {
 }
 
 func InitializeScenario(ctx *godog.ScenarioContext) {
-	ctx.Given(`^coyote is present$`, coyoteIsPresent)
+	ctx.Given(`^coyote is present locally$`, coyoteIsPresentLocally)
+	ctx.Given(`^brew is present$`, brewIsPresent)
+
 	ctx.When(`^coyote is run with help option$`, coyoteIsRunWithHelpOption)
+	ctx.When(`^"(.+)" is installed using brew$`, formulaIsInstalledUsingBrew)
+
 	ctx.Then(`^help message is printed$`, helpMessageIsPrinted)
+	ctx.Then(`^coyote is installed$`, coyoteIsInstalled)
 }
 
-func coyoteIsPresent() error {
+func coyoteIsPresentLocally() error {
 	_, err := os.Stat("coyote")
+	return err
+}
+
+func brewIsPresent() error {
+	_, err := exec.LookPath("brew")
 	return err
 }
 
@@ -63,6 +73,14 @@ func coyoteIsRunWithHelpOption(ctx context.Context) (context.Context, error) {
 	return context.WithValue(ctx, ctxKey{}, string(out)), nil
 }
 
+func formulaIsInstalledUsingBrew(formula string) error {
+	cmd := exec.Command("brew", "install", formula)
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func helpMessageIsPrinted(ctx context.Context) error {
 	actualOutput := ctx.Value(ctxKey{}).(string)
 
@@ -70,6 +88,11 @@ func helpMessageIsPrinted(ctx context.Context) error {
 		return nil
 	}
 	return fmt.Errorf("Result not as expected:\n%v", diff.LineDiff(expectedOutput, actualOutput))
+}
+
+func coyoteIsInstalled() error {
+	_, err := exec.LookPath("coyote")
+	return err
 }
 
 const expectedOutput = `NAME:

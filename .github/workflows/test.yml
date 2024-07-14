@@ -6,8 +6,12 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     steps:
+      - uses: Homebrew/actions/setup-homebrew@master
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
