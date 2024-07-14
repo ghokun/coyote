@@ -1,4 +1,4 @@
-name: golangci-lint
+name: lint
 on: [pull_request, push]
 
 permissions:
@@ -19,3 +19,12 @@ jobs:
         with:
           args: --timeout=5m
           version: latest
+  gherkin-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: restqa/gherkin-linter-action@0.0.1
+        with:
+          path: "features/"
