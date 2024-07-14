@@ -12,10 +12,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: Homebrew/actions/setup-homebrew@master
-      - run: brew install docker colima
-        if: startsWith(matrix.os, 'macOS')
-      - run: colima start
-        if: startsWith(matrix.os, 'macOS')
+      - if: startsWith(runner.os, 'macos')
+        uses: douglascamata/setup-docker-macos-action@main
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
