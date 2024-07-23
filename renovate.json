@@ -13,5 +13,15 @@
         "patch"
       ]
     }
-  ]
+  ],
+  "postUpgradeTasks": {
+    "commands": [
+      "go mod tidy"
+    ],
+    "executionMode": "branch",
+    "fileFilters": [
+      "go.mod",
+      "go.sum"
+    ]
+  }
 }
