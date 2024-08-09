@@ -42,5 +42,5 @@ require (
 	github.com/manifoldco/promptui v0.9.0
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
-	modernc.org/sqlite v1.31.1
+	modernc.org/sqlite v1.32.0
 )
