@@ -110,6 +110,10 @@ func main() {
 				Value:    &listen{},
 				Usage:    "Exchange & routing key combinations to listen messages.",
 			},
+			&cli.BoolFlag{
+				Name:  "persistent",
+				Usage: "Creates the persistent interceptor queue.",
+			},
 			&cli.StringFlag{
 				Name:  "queue",
 				Value: "interceptor",
@@ -174,16 +178,31 @@ func main() {
 				log.Printf("💔 Terminating AMQP channel")
 			}()
 
+			persistent := ctx.Bool("persistent")
 			q, err := ch.QueueDeclare(
 				fmt.Sprintf("%s.%s", ctx.String("queue"), uuid.NewString()), // queue name
-				false, // is durable
-				true,  // is auto delete
-				true,  // is exclusive
-				false, // is no wait
-				nil,   // args
+				false,       // is durable
+				!persistent, // is auto delete
+				!persistent, // is exclusive
+				false,       // is no wait
+				nil,         // args
 			)
 			if err != nil {
 				return fmt.Errorf("%s %w", color.RedString("failed to declare a queue:"), err)
+			}
+			if persistent {
+				defer func() {
+					log.Printf("💔 Deleting queue %s", q.Name)
+					_, err := ch.QueueDelete(
+						q.Name,
+						false, // IfUnused: delete only if the queue is unused
+						false, // IfEmpty: delete only if the queue is empty
+						false, // NoWait: wait for server confirmation
+					)
+					if err != nil {
+						log.Fatalf("Failed to delete the queue: %v", err)
+					}
+				}()
 			}
 
 			for _, c := range ctx.Generic("exchange").(*listen).c {
