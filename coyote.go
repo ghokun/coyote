@@ -232,12 +232,7 @@ func main() {
 				var insert *sql.Stmt
 				if ctx.IsSet("store") {
 					filename := ctx.String("store")
-					file, err := os.Create(filename)
-					if err != nil {
-						log.Fatal(err)
-					}
-					file.Close()
-					db, err = sql.Open("sqlite", filename+"?_txlock=exclusive")
+					db, err = sql.Open("sqlite", filename+"?_txlock=exclusive&mode=rwc")
 					if err != nil {
 						log.Fatal(err)
 					}
@@ -249,7 +244,7 @@ func main() {
 						log.Printf("💔 Closing database connection")
 					}()
 
-					create, err := db.Prepare(`CREATE TABLE event 
+					create, err := db.Prepare(`CREATE TABLE IF NOT EXISTS event 
 					(
 					  "id"             INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					  "timestamp"      TIMESTAMP DEFAULT (DATETIME(CURRENT_TIMESTAMP, 'localtime')),
