@@ -112,8 +112,7 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:  "queue",
-				Value: "interceptor",
-				Usage: "Interceptor queue name.",
+				Usage: "Interceptor queue name. If provided, interceptor queue will not be auto deleted.",
 			},
 			&cli.StringFlag{
 				Name:  "store",
@@ -130,10 +129,6 @@ func main() {
 			&cli.BoolFlag{
 				Name:  "silent",
 				Usage: "Disables terminal print.",
-			},
-			&cli.BoolFlag{
-				Name:  "persistent",
-				Usage: "Creates a persistent interceptor queue.",
 			},
 		},
 		Action: func(ctx *cli.Context) error {
@@ -178,9 +173,15 @@ func main() {
 				log.Printf("💔 Terminating AMQP channel")
 			}()
 
-			persistent := ctx.Bool("persistent")
+			var queueName string
+			persistent := ctx.IsSet("queue")
+			if persistent {
+				queueName = ctx.String("queue")
+			} else {
+				queueName = fmt.Sprintf("%s.%s", "coyote", uuid.NewString())
+			}
 			q, err := ch.QueueDeclare(
-				fmt.Sprintf("%s.%s", ctx.String("queue"), uuid.NewString()), // queue name
+				queueName,   // queue name
 				false,       // is durable
 				!persistent, // is auto delete
 				!persistent, // is exclusive
@@ -189,20 +190,6 @@ func main() {
 			)
 			if err != nil {
 				return fmt.Errorf("%s %w", color.RedString("failed to declare a queue:"), err)
-			}
-			if persistent {
-				defer func() {
-					log.Printf("💔 Deleting queue %s", q.Name)
-					_, err := ch.QueueDelete(
-						q.Name,
-						false, // IfUnused: delete only if the queue is unused
-						false, // IfEmpty: delete only if the queue is empty
-						false, // NoWait: wait for server confirmation
-					)
-					if err != nil {
-						log.Fatalf("Failed to delete the queue: %v", err)
-					}
-				}()
 			}
 
 			for _, c := range ctx.Generic("exchange").(*listen).c {
