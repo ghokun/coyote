@@ -148,6 +148,7 @@ GLOBAL OPTIONS:
    --insecure        Skips certificate verification. (default: false)
    --noprompt        Disables password prompt. (default: false)
    --silent          Disables terminal print. (default: false)
+   --persistent      Creates a persistent interceptor queue. (default: false)
    --help, -h        show help
    --version, -v     print the version`
 )
