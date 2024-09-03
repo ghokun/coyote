@@ -143,7 +143,7 @@ COMMANDS:
 GLOBAL OPTIONS:
    --url value       RabbitMQ url, must start with amqps:// or amqp://.
    --exchange value  Exchange & routing key combinations to listen messages.
-   --queue value     Interceptor queue name. (default: "interceptor")
+   --queue value     Interceptor queue name. If provided, interceptor queue will not be auto deleted.
    --store value     SQLite filename to store events.
    --insecure        Skips certificate verification. (default: false)
    --noprompt        Disables password prompt. (default: false)

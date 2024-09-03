@@ -112,8 +112,7 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:  "queue",
-				Value: "interceptor",
-				Usage: "Interceptor queue name.",
+				Usage: "Interceptor queue name. If provided, interceptor queue will not be auto deleted.",
 			},
 			&cli.StringFlag{
 				Name:  "store",
@@ -174,13 +173,20 @@ func main() {
 				log.Printf("💔 Terminating AMQP channel")
 			}()
 
+			var queueName string
+			persistent := ctx.IsSet("queue")
+			if persistent {
+				queueName = ctx.String("queue")
+			} else {
+				queueName = fmt.Sprintf("%s.%s", "coyote", uuid.NewString())
+			}
 			q, err := ch.QueueDeclare(
-				fmt.Sprintf("%s.%s", ctx.String("queue"), uuid.NewString()), // queue name
-				false, // is durable
-				true,  // is auto delete
-				true,  // is exclusive
-				false, // is no wait
-				nil,   // args
+				queueName,   // queue name
+				false,       // is durable
+				!persistent, // is auto delete
+				!persistent, // is exclusive
+				false,       // is no wait
+				nil,         // args
 			)
 			if err != nil {
 				return fmt.Errorf("%s %w", color.RedString("failed to declare a queue:"), err)
