@@ -1,8 +1,5 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "allowedPostUpgradeCommands": [
-    "go mod tidy"
-  ],
   "automergeStrategy": "squash",
   "extends": [
     "config:base"
@@ -17,14 +14,7 @@
       ]
     }
   ],
-  "postUpgradeTasks": {
-    "commands": [
-      "go mod tidy"
-    ],
-    "executionMode": "branch",
-    "fileFilters": [
-      "go.mod",
-      "go.sum"
-    ]
-  }
+  "postUpdateOptions": [
+    "gomodTidy"
+  ]
 }
