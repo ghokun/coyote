@@ -32,14 +32,15 @@ func TestFeatures(t *testing.T) {
 }
 
 func InitializeTestSuite(ctx *godog.TestSuiteContext) {
-	cmd := exec.Command("go", "build", ".")
-	if err := cmd.Run(); err != nil {
-		log.Fatal(err)
-	}
+	ctx.BeforeSuite(func() {
+		cmd := exec.Command("go", "build", ".")
+		if err := cmd.Run(); err != nil {
+			log.Fatal(err)
+		}
+	})
 
 	ctx.AfterSuite(func() {
-		err := os.Remove("coyote")
-		if err != nil {
+		if err := os.Remove("./coyote"); err != nil {
 			log.Fatal(err)
 		}
 	})
@@ -59,7 +60,7 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 }
 
 func coyoteIsPresentLocally() error {
-	_, err := os.Stat("coyote")
+	_, err := os.Stat("./coyote")
 	return err
 }
 
