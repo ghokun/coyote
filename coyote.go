@@ -258,10 +258,6 @@ func main() {
 				Value:    &listen{},
 				Usage:    "Exchange & routing key combinations to listen messages.",
 			},
-			&cli.BoolFlag{
-				Name:  "persistent",
-				Usage: "Creates the persistent interceptor queue.",
-			},
 			&cli.StringFlag{
 				Name:  "queue",
 				Value: "interceptor",
@@ -282,6 +278,10 @@ func main() {
 			&cli.BoolFlag{
 				Name:  "silent",
 				Usage: "Disables terminal print.",
+			},
+			&cli.BoolFlag{
+				Name:  "persistent",
+				Usage: "Creates a persistent interceptor queue.",
 			},
 		},
 		Action: func(ctx *cli.Context) error {
