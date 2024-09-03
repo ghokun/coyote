@@ -1,6 +1,6 @@
 # Coyote
 
-Coyote is a RabbitMQ message sink. The default routing key is `#` so every message in the given `exchange` is routed to a ephemeral `interceptor` queue.
+Coyote is a RabbitMQ message sink. The default routing key is `#` so every message in the given `exchange` is routed to an `interceptor` queue.
 
 ## Install
 
@@ -31,7 +31,7 @@ USAGE:
     --exchange myexchange1,myexchange2=mykey2        # Messages with or without routing keys in multiple exchanges
 
 VERSION:
-   v0.14.0
+   v0.16.0
 
 COMMANDS:
    help, h  Shows a list of commands or help for one command
@@ -39,12 +39,11 @@ COMMANDS:
 GLOBAL OPTIONS:
    --url value       RabbitMQ url, must start with amqps:// or amqp://.
    --exchange value  Exchange & routing key combinations to listen messages.
-   --queue value     Interceptor queue name. (default: "interceptor")
+   --queue value     Interceptor queue name. If provided, interceptor queue will not be auto deleted.
    --store value     SQLite filename to store events.
    --insecure        Skips certificate verification. (default: false)
    --noprompt        Disables password prompt. (default: false)
    --silent          Disables terminal print. (default: false)
-   --persistent      Creates a persistent interceptor queue. (default: false)
    --help, -h        show help
    --version, -v     print the version
 ```
