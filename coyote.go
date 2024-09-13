@@ -165,7 +165,7 @@ func main() {
 			var consumedCount int32 = 0
 
 			go func() {
-				rmq := NewRabbitMQClient(rabbitUrl, queueName, ctx.Bool("insecure"), persistent, ctx.Generic("exchange").(*Listen))
+				rmq := NewRabbitMQConsumer(rabbitUrl, queueName, ctx.Bool("insecure"), persistent, ctx.Generic("exchange").(*Listen))
 				<-time.After(time.Second)
 				deliveries, err := rmq.Consume()
 				if err != nil {

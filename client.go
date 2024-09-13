@@ -39,7 +39,7 @@ type combination struct {
 	routingKey string
 }
 
-type RabbitMQCConsumer struct {
+type RabbitMQConsumer struct {
 	conn         *amqp.Connection
 	channel      *amqp.Channel
 	rabbitUrl    *url.URL
@@ -93,8 +93,8 @@ func (l *Listen) Set(value string) (err error) {
 	return nil
 }
 
-func NewRabbitMQClient(rabbitUrl *url.URL, queue string, insecure, persistent bool, deliverables *Listen) *RabbitMQCConsumer {
-	client := RabbitMQCConsumer{
+func NewRabbitMQConsumer(rabbitUrl *url.URL, queue string, insecure, persistent bool, deliverables *Listen) *RabbitMQConsumer {
+	client := RabbitMQConsumer{
 		rabbitUrl:    rabbitUrl,
 		insecure:     insecure,
 		queue:        queue,
@@ -107,7 +107,7 @@ func NewRabbitMQClient(rabbitUrl *url.URL, queue string, insecure, persistent bo
 	return &client
 }
 
-func (client *RabbitMQCConsumer) handleReconnect() {
+func (client *RabbitMQConsumer) handleReconnect() {
 	reconnectDelay := reconnectDelay
 	for {
 		client.m.Lock()
@@ -142,7 +142,7 @@ func (client *RabbitMQCConsumer) handleReconnect() {
 	}
 }
 
-func (client *RabbitMQCConsumer) connect() (*amqp.Connection, *connectionError) {
+func (client *RabbitMQConsumer) connect() (*amqp.Connection, *connectionError) {
 	conn, err := amqp.DialConfig(client.rabbitUrl.String(), amqp.Config{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: client.insecure},
 		Locale:          "en_US",
@@ -174,7 +174,7 @@ func (client *RabbitMQCConsumer) connect() (*amqp.Connection, *connectionError) 
 	return conn, nil
 }
 
-func (client *RabbitMQCConsumer) handleReInit(conn *amqp.Connection) bool {
+func (client *RabbitMQConsumer) handleReInit(conn *amqp.Connection) bool {
 	reInitDelay := reInitDelay
 	for {
 		client.m.Lock()
@@ -209,7 +209,7 @@ func (client *RabbitMQCConsumer) handleReInit(conn *amqp.Connection) bool {
 	}
 }
 
-func (client *RabbitMQCConsumer) init(conn *amqp.Connection) error {
+func (client *RabbitMQConsumer) init(conn *amqp.Connection) error {
 	ch, err := conn.Channel()
 	if err != nil {
 		return err
@@ -268,13 +268,13 @@ func (client *RabbitMQCConsumer) init(conn *amqp.Connection) error {
 	return nil
 }
 
-func (client *RabbitMQCConsumer) changeConnection(connection *amqp.Connection) {
+func (client *RabbitMQConsumer) changeConnection(connection *amqp.Connection) {
 	client.conn = connection
 	client.notifyConnClose = make(chan *amqp.Error, 1)
 	client.conn.NotifyClose(client.notifyConnClose)
 }
 
-func (client *RabbitMQCConsumer) changeChannel(channel *amqp.Channel) {
+func (client *RabbitMQConsumer) changeChannel(channel *amqp.Channel) {
 	client.channel = channel
 	client.notifyChanClose = make(chan *amqp.Error, 1)
 	client.notifyConfirm = make(chan amqp.Confirmation, 1)
@@ -282,7 +282,7 @@ func (client *RabbitMQCConsumer) changeChannel(channel *amqp.Channel) {
 	client.channel.NotifyPublish(client.notifyConfirm)
 }
 
-func (client *RabbitMQCConsumer) Consume() (<-chan amqp.Delivery, error) {
+func (client *RabbitMQConsumer) Consume() (<-chan amqp.Delivery, error) {
 	for {
 		client.m.Lock()
 		if !client.isReady {
@@ -317,7 +317,7 @@ func (client *RabbitMQCConsumer) Consume() (<-chan amqp.Delivery, error) {
 	)
 }
 
-func (client *RabbitMQCConsumer) Close() error {
+func (client *RabbitMQConsumer) Close() error {
 	if client.persistent {
 		var exchanges []string
 		for _, comb := range client.deliverables.c {
