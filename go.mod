@@ -5,7 +5,7 @@ go 1.22
 require (
 	github.com/google/uuid v1.6.0
 	github.com/rabbitmq/amqp091-go v1.10.0
-	github.com/urfave/cli/v2 v2.27.4
+	github.com/urfave/cli/v2 v2.27.5
 )
 
 require (
@@ -36,7 +36,7 @@ require (
 
 require (
 	github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883
-	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.5 // indirect
 	github.com/cucumber/godog v0.14.1
 	github.com/fatih/color v1.17.0
 	github.com/manifoldco/promptui v0.9.0
