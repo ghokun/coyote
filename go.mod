@@ -37,7 +37,7 @@ require (
 require (
 	github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883
 	github.com/cpuguy83/go-md2man/v2 v2.0.5 // indirect
-	github.com/cucumber/godog v0.14.1
+	github.com/cucumber/godog v0.15.0
 	github.com/fatih/color v1.17.0
 	github.com/manifoldco/promptui v0.9.0
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
