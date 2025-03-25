@@ -2,14 +2,14 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"log"
 	"net/url"
 	"os"
 	"os/signal"
-	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/google/uuid"
@@ -36,48 +36,12 @@ Exchange binding formats:
  --exchange myexchange1=mykey1,myexchange2=mykey2 # Messages with routing keys in multiple exchanges
  --exchange myexchange1,myexchange2=mykey2        # Messages with or without routing keys in multiple exchanges`
 
-type listen struct {
-	c []combination
-}
-
-type combination struct {
-	exchange   string
-	routingKey string
-}
-
-func (l *listen) Set(value string) (err error) {
-	for _, comb := range strings.Split(value, ",") {
-		pair := strings.Split(comb, "=")
-		length := len(pair)
-		if length == 1 {
-			if len(pair[0]) < 1 {
-				return fmt.Errorf("exchange name can not be empty")
-			}
-			l.c = append(l.c, combination{exchange: pair[0], routingKey: "#"})
-		} else if length == 2 {
-			if len(pair[0]) < 1 {
-				return fmt.Errorf("exchange name can not be empty")
-			}
-			if len(pair[1]) < 1 {
-				return fmt.Errorf("routing key can not be empty when '=' is provided")
-			}
-			l.c = append(l.c, combination{exchange: pair[0], routingKey: pair[1]})
-		} else {
-			return fmt.Errorf("valid values are ['a=x' 'a,b' 'a=x,b=y' 'a,b=y'] where a and b are exchanges, x and y are routing keys")
-		}
-	}
-	return nil
-}
-
-func (l *listen) String() string {
-	return ""
-}
-
 func main() {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
+	consumeDone := make(chan struct{})
 	defer func() {
 		signal.Stop(signalChan)
 		cancel()
@@ -86,6 +50,7 @@ func main() {
 	go func() {
 		select {
 		case <-signalChan:
+			close(consumeDone)
 			cancel()
 		case <-ctx.Done():
 		}
@@ -107,7 +72,7 @@ func main() {
 			&cli.GenericFlag{
 				Name:     "exchange",
 				Required: true,
-				Value:    &listen{},
+				Value:    &Listen{},
 				Usage:    "Exchange & routing key combinations to listen messages.",
 			},
 			&cli.StringFlag{
@@ -132,7 +97,7 @@ func main() {
 			},
 		},
 		Action: func(ctx *cli.Context) error {
-			u, err := url.Parse(ctx.String("url"))
+			rabbitUrl, err := url.Parse(ctx.String("url"))
 			if err != nil {
 				return fmt.Errorf("%s %w", color.RedString("failed to parse provided url:"), err)
 			}
@@ -146,111 +111,26 @@ func main() {
 				if err != nil {
 					return fmt.Errorf("%s %w", color.RedString("failed to provide password:"), err)
 				}
-				u.User = url.UserPassword(u.User.String(), password)
+				rabbitUrl.User = url.UserPassword(rabbitUrl.User.String(), password)
 			}
 
-			conn, err := amqp.DialTLS(u.String(), &tls.Config{InsecureSkipVerify: ctx.Bool("insecure")})
-			if err != nil {
-				return fmt.Errorf("%s %w", color.RedString("failed to connect to RabbitMQ:"), err)
-			}
-			defer func() {
-				err := conn.Close()
+			var db *sql.DB
+			var insert *sql.Stmt
+			if ctx.IsSet("store") {
+				filename := ctx.String("store")
+				db, err = sql.Open("sqlite", filename+"?_txlock=exclusive&mode=rwc")
 				if err != nil {
 					log.Fatal(err)
 				}
-				log.Printf("💔 Terminating AMQP connection")
-			}()
-
-			ch, err := conn.Channel()
-			if err != nil {
-				return fmt.Errorf("%s %w", color.RedString("failed to open a channel:"), err)
-			}
-			defer func() {
-				err := ch.Close()
-				if err != nil {
-					log.Fatal(err)
-				}
-				log.Printf("💔 Terminating AMQP channel")
-			}()
-
-			var queueName string
-			persistent := ctx.IsSet("queue")
-			if persistent {
-				queueName = ctx.String("queue")
-			} else {
-				queueName = fmt.Sprintf("%s.%s", "coyote", uuid.NewString())
-			}
-			q, err := ch.QueueDeclare(
-				queueName,   // queue name
-				false,       // is durable
-				!persistent, // is auto delete
-				!persistent, // is exclusive
-				false,       // is no wait
-				nil,         // args
-			)
-			if err != nil {
-				return fmt.Errorf("%s %w", color.RedString("failed to declare a queue:"), err)
-			}
-
-			for _, c := range ctx.Generic("exchange").(*listen).c {
-				err = ch.ExchangeDeclarePassive(
-					c.exchange, // exchange name
-					"topic",    // exchange kind
-					true,       // is durable
-					false,      // is auto delete
-					false,      // is internal
-					false,      // is no wait
-					nil,        // args
-				)
-				if err != nil {
-					return fmt.Errorf("%s %w", color.RedString("failed to connect to exchange:"), err)
-				}
-
-				err = ch.QueueBind(
-					q.Name,       // interceptor queue name
-					c.routingKey, // routing key to bind
-					c.exchange,   // exchange to listen
-					false,        // is no wait
-					nil,          // args
-				)
-				if err != nil {
-					return fmt.Errorf("%s %w", color.RedString("failed to bind to queue:"), err)
-				} else {
-					log.Printf("👂 Listening from exchange %s with routing key %s", color.YellowString(c.exchange), color.YellowString(c.routingKey))
-				}
-			}
-
-			deliveries, err := ch.Consume(
-				q.Name, // queue name to consume from
-				"",     // consumer tag
-				true,   // is auto ack
-				false,  // is exclusive
-				false,  // is no local
-				false,  // is no wait
-				nil,    // args
-			)
-			if err != nil {
-				return fmt.Errorf("%s %w", color.RedString("failed to register a consumer:"), err)
-			}
-
-			go func() {
-				var db *sql.DB
-				var insert *sql.Stmt
-				if ctx.IsSet("store") {
-					filename := ctx.String("store")
-					db, err = sql.Open("sqlite", filename+"?_txlock=exclusive&mode=rwc")
+				defer func() {
+					log.Printf("💔 Closing database connection")
+					err := db.Close()
 					if err != nil {
 						log.Fatal(err)
 					}
-					defer func() {
-						err := db.Close()
-						if err != nil {
-							log.Fatal(err)
-						}
-						log.Printf("💔 Closing database connection")
-					}()
+				}()
 
-					create, err := db.Prepare(`CREATE TABLE IF NOT EXISTS event 
+				create, err := db.Prepare(`CREATE TABLE IF NOT EXISTS event 
 					(
 					  "id"             INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					  "timestamp"      TIMESTAMP DEFAULT (DATETIME(CURRENT_TIMESTAMP, 'localtime')),
@@ -261,50 +141,96 @@ func main() {
 					  "headers"        TEXT,
 					  "body"           TEXT
 					);`)
-					if err != nil {
-						log.Fatal(err)
-					}
-					if _, err := create.Exec(); err != nil {
-						log.Fatal(err)
-					}
-					insert, err = db.Prepare(`INSERT INTO event(exchange, routing_key, correlation_id, reply_to, headers, body) 
-					VALUES (?, ?, ?, ?, ?, ?)`)
-					if err != nil {
-						log.Fatal(err)
-					}
+				if err != nil {
+					log.Fatal(err)
 				}
-				count := 0
-				for d := range deliveries {
-					if insert != nil {
-						if _, err := insert.Exec(d.Exchange, d.RoutingKey, d.CorrelationId, d.ReplyTo, fmt.Sprint(d.Headers), string(d.Body)); err != nil {
-							log.Fatal(err)
+				if _, err := create.Exec(); err != nil {
+					log.Fatal(err)
+				}
+				insert, err = db.Prepare(`INSERT INTO event(exchange, routing_key, correlation_id, reply_to, headers, body) 
+					VALUES (?, ?, ?, ?, ?, ?)`)
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+
+			var queueName string
+			persistent := ctx.IsSet("queue")
+			if persistent {
+				queueName = ctx.String("queue")
+			} else {
+				queueName = fmt.Sprintf("%s.%s", "coyote", uuid.NewString())
+			}
+
+			var consumedCount int32 = 0
+
+			go func() {
+				rmq := NewRabbitMQConsumer(rabbitUrl, queueName, ctx.Bool("insecure"), persistent, ctx.Generic("exchange").(*Listen))
+				<-time.After(time.Second)
+				deliveries, err := rmq.Consume()
+				if err != nil {
+					log.Printf("Could not start consuming: %s\n", err)
+					close(consumeDone)
+					return
+				}
+
+				chClosedCh := make(chan *amqp.Error, 1)
+				rmq.channel.NotifyClose(chClosedCh)
+
+			loop:
+				for {
+					select {
+					case <-ctx.Done():
+						log.Printf("💔 Closing RabbitMQ connection")
+						err := rmq.Close()
+						if err != nil {
+							log.Printf("Close failed: %s\n", err)
+						}
+						break loop
+
+					case amqErr := <-chClosedCh:
+						log.Printf("AMQP Channel closed due to: %s\n", amqErr)
+						deliveries, err = rmq.Consume()
+						if err != nil {
+							log.Println("Error trying to consume, will try again")
+							continue
+						}
+						chClosedCh = make(chan *amqp.Error, 1)
+						rmq.channel.NotifyClose(chClosedCh)
+
+					case d := <-deliveries:
+						if insert != nil {
+							if _, err := insert.Exec(d.Exchange, d.RoutingKey, d.CorrelationId, d.ReplyTo, fmt.Sprint(d.Headers), string(d.Body)); err != nil {
+								log.Fatal(err)
+							}
+						}
+						if !ctx.Bool("silent") {
+							log.Printf("📧 %s\n%s%s\n%s%s\n%s%s\n%s%s\n%s%s\n%s%s",
+								color.YellowString("Received a message"),
+								color.GreenString("# Exchange        : "),
+								d.Exchange,
+								color.GreenString("# Routing-key     : "),
+								d.RoutingKey,
+								color.GreenString("# Correlation-id  : "),
+								d.CorrelationId,
+								color.GreenString("# Reply-to        : "),
+								d.ReplyTo,
+								color.GreenString("# Headers         : "),
+								d.Headers,
+								color.GreenString("# Body            : "),
+								d.Body)
+						} else {
+							atomic.AddInt32(&consumedCount, 1)
+							fmt.Printf("\033[1A\033[K")
+							log.Printf("💾 Consumed %s messages. To exit press %s", color.GreenString("%d", consumedCount), color.YellowString("CTRL+C"))
 						}
 					}
-					if !ctx.Bool("silent") {
-						log.Printf("📧 %s\n%s%s\n%s%s\n%s%s\n%s%s\n%s%s\n%s%s",
-							color.YellowString("Received a message"),
-							color.GreenString("# Exchange        : "),
-							d.Exchange,
-							color.GreenString("# Routing-key     : "),
-							d.RoutingKey,
-							color.GreenString("# Correlation-id  : "),
-							d.CorrelationId,
-							color.GreenString("# Reply-to        : "),
-							d.ReplyTo,
-							color.GreenString("# Headers         : "),
-							d.Headers,
-							color.GreenString("# Body            : "),
-							d.Body)
-					} else {
-						count++
-						fmt.Printf("\033[1A\033[K")
-						log.Printf("💾 Consumed %s messages. To exit press %s", color.GreenString("%d", count), color.YellowString("CTRL+C"))
-					}
 				}
+
+				close(consumeDone)
 			}()
 
-			log.Printf("⏳ Waiting for messages. To exit press %s", color.YellowString("CTRL+C"))
-			<-ctx.Done()
+			<-consumeDone
 			return nil
 		},
 	}
