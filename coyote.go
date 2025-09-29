@@ -11,9 +11,10 @@ import (
 	"os/signal"
 	"strings"
 
+	"github.com/cqroot/prompt"
+	"github.com/cqroot/prompt/input"
 	"github.com/fatih/color"
 	"github.com/google/uuid"
-	"github.com/manifoldco/promptui"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/urfave/cli/v2"
 	_ "modernc.org/sqlite"
@@ -49,12 +50,13 @@ func (l *listen) Set(value string) (err error) {
 	for _, comb := range strings.Split(value, ",") {
 		pair := strings.Split(comb, "=")
 		length := len(pair)
-		if length == 1 {
+		switch length {
+		case 1:
 			if len(pair[0]) < 1 {
 				return fmt.Errorf("exchange name can not be empty")
 			}
 			l.c = append(l.c, combination{exchange: pair[0], routingKey: "#"})
-		} else if length == 2 {
+		case 2:
 			if len(pair[0]) < 1 {
 				return fmt.Errorf("exchange name can not be empty")
 			}
@@ -62,7 +64,7 @@ func (l *listen) Set(value string) (err error) {
 				return fmt.Errorf("routing key can not be empty when '=' is provided")
 			}
 			l.c = append(l.c, combination{exchange: pair[0], routingKey: pair[1]})
-		} else {
+		default:
 			return fmt.Errorf("valid values are ['a=x' 'a,b' 'a=x,b=y' 'a,b=y'] where a and b are exchanges, x and y are routing keys")
 		}
 	}
@@ -138,11 +140,7 @@ func main() {
 			}
 
 			if !ctx.Bool("noprompt") {
-				prompt := promptui.Prompt{
-					Label: "Password",
-					Mask:  '*',
-				}
-				password, err := prompt.Run()
+				password, err := prompt.New().Ask("Password").Input("", input.WithCharLimit(0), input.WithEchoMode(input.EchoPassword))
 				if err != nil {
 					return fmt.Errorf("%s %w", color.RedString("failed to provide password:"), err)
 				}
