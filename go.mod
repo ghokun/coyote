@@ -57,5 +57,5 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
-	modernc.org/sqlite v1.38.2
+	modernc.org/sqlite v1.39.0
 )
