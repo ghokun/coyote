@@ -4,14 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
-	"os"
-	"os/signal"
-
 	"github.com/fatih/color"
+	. "github.com/ghokun/coyote/error"
 	"github.com/google/uuid"
 	"github.com/urfave/cli/v3"
+	"log"
 	_ "modernc.org/sqlite"
+	"os"
+	"os/signal"
 )
 
 var Version = "development"
@@ -109,7 +109,7 @@ func main() {
 
 			ch, err := conn.Channel()
 			if err != nil {
-				return because("failed to open a channel:", err)
+				return Because("failed to open a channel:", err)
 			}
 			defer func() {
 				err := ch.Close()
@@ -135,7 +135,7 @@ func main() {
 				nil,         // args
 			)
 			if err != nil {
-				return because("failed to declare a queue:", err)
+				return Because("failed to declare a queue:", err)
 			}
 
 			for exchange, routingKey := range cli.StringMap("exchange") {
@@ -149,7 +149,7 @@ func main() {
 					nil,      // args
 				)
 				if err != nil {
-					return because("failed to connect to exchange:", err)
+					return Because("failed to connect to exchange:", err)
 				}
 
 				err = ch.QueueBind(
@@ -160,7 +160,7 @@ func main() {
 					nil,        // args
 				)
 				if err != nil {
-					return because("failed to bind to queue:", err)
+					return Because("failed to bind to queue:", err)
 				} else {
 					log.Printf("👂 Listening from exchange %s with routing key %s", color.YellowString(exchange), color.YellowString(routingKey))
 				}
@@ -176,7 +176,7 @@ func main() {
 				nil,    // args
 			)
 			if err != nil {
-				return because("failed to register a consumer:", err)
+				return Because("failed to register a consumer:", err)
 			}
 
 			go func() {

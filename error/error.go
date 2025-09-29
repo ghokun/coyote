@@ -1,11 +1,11 @@
-package main
+package error
 
 import (
 	"fmt"
 	"github.com/fatih/color"
 )
 
-func because(reason string, err error) error {
+func Because(reason string, err error) error {
 	if err == nil {
 		return fmt.Errorf("💥 %s", color.RedString(reason))
 	}

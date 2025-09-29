@@ -1,6 +1,7 @@
-package main
+package auth
 
 import (
+	. "github.com/ghokun/coyote/error"
 	"encoding/json"
 	"io"
 	"log"
@@ -26,10 +27,10 @@ type OauthResourceServer struct {
 	OauthProviderURL string `json:"oauth_provider_url"`
 }
 
-func oauth2Auth(cli *cli.Command) (amqpUrl *url.URL, err error) {
+func OAuth20(cli *cli.Command) (amqpUrl *url.URL, err error) {
 	amqpUrl, err = url.Parse(cli.String("url"))
 	if err != nil {
-		return nil, because("failed to parse provided url", err)
+		return nil, Because("failed to parse provided url", err)
 	}
 	oauthConfig, err := fetchAuthConfig(amqpUrl)
 	if err != nil {
@@ -54,21 +55,21 @@ func fetchAuthConfig(amqpUrl *url.URL) (authConfig *OAuthConfig, err error) {
 	authApiUrl := apiScheme + "://" + amqpUrl.Host + "/api/auth"
 	resp, err := http.Get(authApiUrl)
 	if err != nil {
-		return nil, because("failure while connecting to "+authApiUrl, err)
+		return nil, Because("failure while connecting to "+authApiUrl, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, because("failed to fetch auth config, status code: "+resp.Status, nil)
+		return nil, Because("failed to fetch auth config, status code: "+resp.Status, nil)
 	}
 	err = json.NewDecoder(resp.Body).Decode(&authConfig)
 	if err != nil && err != io.EOF {
-		return nil, because("failed to decode auth config", err)
+		return nil, Because("failed to decode auth config", err)
 	}
 	if authConfig == nil {
-		return nil, because("received empty auth config", nil)
+		return nil, Because("received empty auth config", nil)
 	}
 	if !authConfig.OauthEnabled {
-		return nil, because("OAuth 2.0 is not enabled on the server", nil)
+		return nil, Because("OAuth 2.0 is not enabled on the server", nil)
 	}
 	return authConfig, nil
 }
@@ -85,7 +86,7 @@ func promptAuthServer(oauthConfig *OAuthConfig) (choice *OauthResourceServer, er
 		AdvancedChoose(choices)
 
 	if id == "none" {
-		return nil, because("no resource server chosen", nil)
+		return nil, Because("no resource server chosen", nil)
 	}
 	return oauthConfig.OauthResourceServers[id], err
 }
