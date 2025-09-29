@@ -1,6 +1,6 @@
 module github.com/ghokun/coyote
 
-go 1.24.0
+go 1.25.1
 
 require (
 	github.com/cqroot/prompt v0.9.4
