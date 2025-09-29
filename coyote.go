@@ -9,14 +9,13 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"strings"
 
 	"github.com/cqroot/prompt"
 	"github.com/cqroot/prompt/input"
 	"github.com/fatih/color"
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	_ "modernc.org/sqlite"
 )
 
@@ -25,55 +24,22 @@ var Version = "development"
 const usage = `coyote [global options]
 
 Examples:
-coyote --url amqps://user@myurl --exchange myexchange --store events.sqlite
-coyote --url amqps://user:password@myurl --noprompt --exchange myexchange --store events.sqlite
-coyote --url amqps://user:password@myurl --noprompt --insecure --exchange myexchange
+# Store all messages from 'myexchange' into 'events.sqlite' file, prompting for password
+coyote --url amqps://user@myurl --exchange myexchange=# --store events.sqlite
+
+# Store all messages with routing key 'mykey' from 'myexchange' into events.sqlite file without prompting for password
+coyote --url amqps://user:password@myurl --noprompt --exchange myexchange=mykey --store events.sqlite
+
+# Capture all messages from 'myexchange' without certificate verification
+coyote --url amqps://user:password@myurl --noprompt --insecure --exchange myexchange=#
 
 Exchange binding formats:
- --exchange myexchange                            # All messages in single exchange
+ --exchange myexchange=#                          # All messages in single exchange
  --exchange myexchange1=mykey1                    # Messages with routing key in a single exchange
  --exchange myexchange1=mykey1,myexchange1=mykey2 # Messages with routing keys in a single exchange
- --exchange myexchange1,myexchange2               # All messages in multiple exchanges
+ --exchange myexchange1=#,myexchange2=#           # All messages in multiple exchanges
  --exchange myexchange1=mykey1,myexchange2=mykey2 # Messages with routing keys in multiple exchanges
- --exchange myexchange1,myexchange2=mykey2        # Messages with or without routing keys in multiple exchanges`
-
-type listen struct {
-	c []combination
-}
-
-type combination struct {
-	exchange   string
-	routingKey string
-}
-
-func (l *listen) Set(value string) (err error) {
-	for _, comb := range strings.Split(value, ",") {
-		pair := strings.Split(comb, "=")
-		length := len(pair)
-		switch length {
-		case 1:
-			if len(pair[0]) < 1 {
-				return fmt.Errorf("exchange name can not be empty")
-			}
-			l.c = append(l.c, combination{exchange: pair[0], routingKey: "#"})
-		case 2:
-			if len(pair[0]) < 1 {
-				return fmt.Errorf("exchange name can not be empty")
-			}
-			if len(pair[1]) < 1 {
-				return fmt.Errorf("routing key can not be empty when '=' is provided")
-			}
-			l.c = append(l.c, combination{exchange: pair[0], routingKey: pair[1]})
-		default:
-			return fmt.Errorf("valid values are ['a=x' 'a,b' 'a=x,b=y' 'a,b=y'] where a and b are exchanges, x and y are routing keys")
-		}
-	}
-	return nil
-}
-
-func (l *listen) String() string {
-	return ""
-}
+ --exchange myexchange1=#,myexchange2=mykey2      # Messages with or without specific routing keys in multiple exchanges`
 
 func main() {
 	ctx := context.Background()
@@ -95,7 +61,7 @@ func main() {
 		os.Exit(2)
 	}()
 
-	app := &cli.App{
+	app := &cli.Command{
 		Name:      "coyote",
 		Usage:     "Coyote is a RabbitMQ message sink.",
 		Version:   Version,
@@ -106,11 +72,11 @@ func main() {
 				Required: true,
 				Usage:    "RabbitMQ url, must start with amqps:// or amqp://.",
 			},
-			&cli.GenericFlag{
-				Name:     "exchange",
-				Required: true,
-				Value:    &listen{},
-				Usage:    "Exchange & routing key combinations to listen messages.",
+			&cli.StringMapFlag{
+				Name:        "exchange",
+				Required:    true,
+				Usage:       "Exchange & routing key combinations to listen messages.",
+				DefaultText: "myexchange=#",
 			},
 			&cli.StringFlag{
 				Name:  "queue",
@@ -133,13 +99,13 @@ func main() {
 				Usage: "Disables terminal print.",
 			},
 		},
-		Action: func(ctx *cli.Context) error {
-			u, err := url.Parse(ctx.String("url"))
+		Action: func(ctx context.Context, cli *cli.Command) error {
+			u, err := url.Parse(cli.String("url"))
 			if err != nil {
 				return fmt.Errorf("%s %w", color.RedString("failed to parse provided url:"), err)
 			}
 
-			if !ctx.Bool("noprompt") {
+			if !cli.Bool("noprompt") {
 				password, err := prompt.New().Ask("Password").Input("", input.WithCharLimit(0), input.WithEchoMode(input.EchoPassword))
 				if err != nil {
 					return fmt.Errorf("%s %w", color.RedString("failed to provide password:"), err)
@@ -147,7 +113,7 @@ func main() {
 				u.User = url.UserPassword(u.User.String(), password)
 			}
 
-			conn, err := amqp.DialTLS(u.String(), &tls.Config{InsecureSkipVerify: ctx.Bool("insecure")})
+			conn, err := amqp.DialTLS(u.String(), &tls.Config{InsecureSkipVerify: cli.Bool("insecure")})
 			if err != nil {
 				return fmt.Errorf("%s %w", color.RedString("failed to connect to RabbitMQ:"), err)
 			}
@@ -172,9 +138,9 @@ func main() {
 			}()
 
 			var queueName string
-			persistent := ctx.IsSet("queue")
+			persistent := cli.IsSet("queue")
 			if persistent {
-				queueName = ctx.String("queue")
+				queueName = cli.String("queue")
 			} else {
 				queueName = fmt.Sprintf("%s.%s", "coyote", uuid.NewString())
 			}
@@ -190,31 +156,31 @@ func main() {
 				return fmt.Errorf("%s %w", color.RedString("failed to declare a queue:"), err)
 			}
 
-			for _, c := range ctx.Generic("exchange").(*listen).c {
+			for exchange, routingKey := range cli.StringMap("exchange") {
 				err = ch.ExchangeDeclarePassive(
-					c.exchange, // exchange name
-					"topic",    // exchange kind
-					true,       // is durable
-					false,      // is auto delete
-					false,      // is internal
-					false,      // is no wait
-					nil,        // args
+					exchange, // exchange name
+					"topic",  // exchange kind
+					true,     // is durable
+					false,    // is auto delete
+					false,    // is internal
+					false,    // is no wait
+					nil,      // args
 				)
 				if err != nil {
 					return fmt.Errorf("%s %w", color.RedString("failed to connect to exchange:"), err)
 				}
 
 				err = ch.QueueBind(
-					q.Name,       // interceptor queue name
-					c.routingKey, // routing key to bind
-					c.exchange,   // exchange to listen
-					false,        // is no wait
-					nil,          // args
+					q.Name,     // interceptor queue name
+					routingKey, // routing key to bind
+					exchange,   // exchange to listen
+					false,      // is no wait
+					nil,        // args
 				)
 				if err != nil {
 					return fmt.Errorf("%s %w", color.RedString("failed to bind to queue:"), err)
 				} else {
-					log.Printf("👂 Listening from exchange %s with routing key %s", color.YellowString(c.exchange), color.YellowString(c.routingKey))
+					log.Printf("👂 Listening from exchange %s with routing key %s", color.YellowString(exchange), color.YellowString(routingKey))
 				}
 			}
 
@@ -234,8 +200,8 @@ func main() {
 			go func() {
 				var db *sql.DB
 				var insert *sql.Stmt
-				if ctx.IsSet("store") {
-					filename := ctx.String("store")
+				if cli.IsSet("store") {
+					filename := cli.String("store")
 					db, err = sql.Open("sqlite", filename+"?_txlock=exclusive&mode=rwc")
 					if err != nil {
 						log.Fatal(err)
@@ -278,7 +244,7 @@ func main() {
 							log.Fatal(err)
 						}
 					}
-					if !ctx.Bool("silent") {
+					if !cli.Bool("silent") {
 						log.Printf("📧 %s\n%s%s\n%s%s\n%s%s\n%s%s\n%s%s\n%s%s",
 							color.YellowString("Received a message"),
 							color.GreenString("# Exchange        : "),
@@ -307,7 +273,7 @@ func main() {
 		},
 	}
 
-	if err := app.RunContext(ctx, os.Args); err != nil {
+	if err := app.Run(ctx, os.Args); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -6,7 +6,7 @@ require (
 	github.com/cqroot/prompt v0.9.4
 	github.com/google/uuid v1.6.0
 	github.com/rabbitmq/amqp091-go v1.10.0
-	github.com/urfave/cli/v2 v2.27.7
+	github.com/urfave/cli/v3 v3.4.1
 )
 
 require (
@@ -52,10 +52,7 @@ require (
 
 require (
 	github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883
-	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/cucumber/godog v0.15.1
 	github.com/fatih/color v1.18.0
-	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/xrash/smetrics v0.0.0-20250705151800-55b8f293f342 // indirect
 	modernc.org/sqlite v1.39.0
 )
