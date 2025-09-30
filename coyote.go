@@ -2,21 +2,16 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"database/sql"
 	"fmt"
+	"github.com/fatih/color"
+	failed "github.com/ghokun/coyote/error"
+	"github.com/google/uuid"
+	"github.com/urfave/cli/v3"
 	"log"
-	"net/url"
+	_ "modernc.org/sqlite"
 	"os"
 	"os/signal"
-
-	"github.com/cqroot/prompt"
-	"github.com/cqroot/prompt/input"
-	"github.com/fatih/color"
-	"github.com/google/uuid"
-	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/urfave/cli/v3"
-	_ "modernc.org/sqlite"
 )
 
 var Version = "development"
@@ -72,6 +67,18 @@ func main() {
 				Required: true,
 				Usage:    "RabbitMQ url, must start with amqps:// or amqp://.",
 			},
+			&cli.BoolFlag{
+				Name:  "oauth",
+				Usage: "Use OAuth 2.0 for authentication.",
+			},
+			&cli.StringFlag{
+				Name:  "redirect-url",
+				Usage: "OIDC callback url for OAuth 2.0",
+			},
+			&cli.BoolFlag{
+				Name:  "insecure",
+				Usage: "Skips certificate verification.",
+			},
 			&cli.StringMapFlag{
 				Name:        "exchange",
 				Required:    true,
@@ -87,54 +94,33 @@ func main() {
 				Usage: "SQLite filename to store events.",
 			},
 			&cli.BoolFlag{
-				Name:  "insecure",
-				Usage: "Skips certificate verification.",
-			},
-			&cli.BoolFlag{
-				Name:  "noprompt",
-				Usage: "Disables password prompt.",
-			},
-			&cli.BoolFlag{
 				Name:  "silent",
 				Usage: "Disables terminal print.",
 			},
 		},
 		Action: func(ctx context.Context, cli *cli.Command) error {
-			u, err := url.Parse(cli.String("url"))
+			conn, err := connect(cli)
 			if err != nil {
-				return fmt.Errorf("%s %w", color.RedString("failed to parse provided url:"), err)
-			}
-
-			if !cli.Bool("noprompt") {
-				password, err := prompt.New().Ask("Password").Input("", input.WithCharLimit(0), input.WithEchoMode(input.EchoPassword))
-				if err != nil {
-					return fmt.Errorf("%s %w", color.RedString("failed to provide password:"), err)
-				}
-				u.User = url.UserPassword(u.User.String(), password)
-			}
-
-			conn, err := amqp.DialTLS(u.String(), &tls.Config{InsecureSkipVerify: cli.Bool("insecure")})
-			if err != nil {
-				return fmt.Errorf("%s %w", color.RedString("failed to connect to RabbitMQ:"), err)
+				return err
 			}
 			defer func() {
 				err := conn.Close()
 				if err != nil {
 					log.Fatal(err)
 				}
-				log.Printf("💔 Terminating AMQP connection")
+				log.Printf("⛓️‍💥 Terminating AMQP connection")
 			}()
 
 			ch, err := conn.Channel()
 			if err != nil {
-				return fmt.Errorf("%s %w", color.RedString("failed to open a channel:"), err)
+				return failed.Because("failed to open a channel:", err)
 			}
 			defer func() {
 				err := ch.Close()
 				if err != nil {
 					log.Fatal(err)
 				}
-				log.Printf("💔 Terminating AMQP channel")
+				log.Printf("⛓️‍💥 Terminating AMQP channel")
 			}()
 
 			var queueName string
@@ -153,7 +139,7 @@ func main() {
 				nil,         // args
 			)
 			if err != nil {
-				return fmt.Errorf("%s %w", color.RedString("failed to declare a queue:"), err)
+				return failed.Because("failed to declare a queue:", err)
 			}
 
 			for exchange, routingKey := range cli.StringMap("exchange") {
@@ -167,7 +153,7 @@ func main() {
 					nil,      // args
 				)
 				if err != nil {
-					return fmt.Errorf("%s %w", color.RedString("failed to connect to exchange:"), err)
+					return failed.Because("failed to connect to exchange:", err)
 				}
 
 				err = ch.QueueBind(
@@ -178,7 +164,7 @@ func main() {
 					nil,        // args
 				)
 				if err != nil {
-					return fmt.Errorf("%s %w", color.RedString("failed to bind to queue:"), err)
+					return failed.Because("failed to bind to queue:", err)
 				} else {
 					log.Printf("👂 Listening from exchange %s with routing key %s", color.YellowString(exchange), color.YellowString(routingKey))
 				}
@@ -194,7 +180,7 @@ func main() {
 				nil,    // args
 			)
 			if err != nil {
-				return fmt.Errorf("%s %w", color.RedString("failed to register a consumer:"), err)
+				return failed.Because("failed to register a consumer:", err)
 			}
 
 			go func() {
@@ -211,7 +197,7 @@ func main() {
 						if err != nil {
 							log.Fatal(err)
 						}
-						log.Printf("💔 Closing database connection")
+						log.Printf("⛓️‍💥 Closing database connection")
 					}()
 
 					create, err := db.Prepare(`CREATE TABLE IF NOT EXISTS event 
