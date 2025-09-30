@@ -1,9 +1,9 @@
 package auth
 
 import (
-		. "github.com/ghokun/coyote/error"
-"github.com/cqroot/prompt"
+	"github.com/cqroot/prompt"
 	"github.com/cqroot/prompt/input"
+	failed "github.com/ghokun/coyote/error"
 	"github.com/urfave/cli/v3"
 	"net/url"
 )
@@ -11,15 +11,15 @@ import (
 func Basic(cli *cli.Command) (amqpUrl *url.URL, err error) {
 	amqpUrl, err = url.Parse(cli.String("url"))
 	if err != nil {
-		return nil, Because("failed to parse provided url", err)
+		return nil, failed.Because("failed to parse provided url", err)
 	}
 	username, err := retrieveUsername(amqpUrl)
 	if err != nil {
-		return nil, Because("failed to provide username", err)
+		return nil, failed.Because("failed to provide username", err)
 	}
 	password, err := retrievePassword(amqpUrl)
 	if err != nil {
-		return nil, Because("failed to provide password:", err)
+		return nil, failed.Because("failed to provide password:", err)
 	}
 	amqpUrl.User = url.UserPassword(username, password)
 	return amqpUrl, nil

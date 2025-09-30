@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/fatih/color"
-	. "github.com/ghokun/coyote/error"
+	failed "github.com/ghokun/coyote/error"
 	"github.com/google/uuid"
 	"github.com/urfave/cli/v3"
 	"log"
@@ -71,6 +71,10 @@ func main() {
 				Name:  "oauth",
 				Usage: "Use OAuth 2.0 for authentication.",
 			},
+			&cli.StringFlag{
+				Name:  "redirect-url",
+				Usage: "OIDC callback url for OAuth 2.0",
+			},
 			&cli.BoolFlag{
 				Name:  "insecure",
 				Usage: "Skips certificate verification.",
@@ -109,7 +113,7 @@ func main() {
 
 			ch, err := conn.Channel()
 			if err != nil {
-				return Because("failed to open a channel:", err)
+				return failed.Because("failed to open a channel:", err)
 			}
 			defer func() {
 				err := ch.Close()
@@ -135,7 +139,7 @@ func main() {
 				nil,         // args
 			)
 			if err != nil {
-				return Because("failed to declare a queue:", err)
+				return failed.Because("failed to declare a queue:", err)
 			}
 
 			for exchange, routingKey := range cli.StringMap("exchange") {
@@ -149,7 +153,7 @@ func main() {
 					nil,      // args
 				)
 				if err != nil {
-					return Because("failed to connect to exchange:", err)
+					return failed.Because("failed to connect to exchange:", err)
 				}
 
 				err = ch.QueueBind(
@@ -160,7 +164,7 @@ func main() {
 					nil,        // args
 				)
 				if err != nil {
-					return Because("failed to bind to queue:", err)
+					return failed.Because("failed to bind to queue:", err)
 				} else {
 					log.Printf("👂 Listening from exchange %s with routing key %s", color.YellowString(exchange), color.YellowString(routingKey))
 				}
@@ -176,7 +180,7 @@ func main() {
 				nil,    // args
 			)
 			if err != nil {
-				return Because("failed to register a consumer:", err)
+				return failed.Because("failed to register a consumer:", err)
 			}
 
 			go func() {

@@ -145,6 +145,7 @@ VERSION:
 GLOBAL OPTIONS:
    --url string                                           RabbitMQ url, must start with amqps:// or amqp://.
    --oauth                                                Use OAuth 2.0 for authentication. (default: false)
+   --redirect-url string                                  OIDC callback url for OAuth 2.0
    --insecure                                             Skips certificate verification. (default: false)
    --exchange string=string [ --exchange string=string ]  Exchange & routing key combinations to listen messages.
    --queue string                                         Interceptor queue name. If provided, interceptor queue will not be auto deleted.
