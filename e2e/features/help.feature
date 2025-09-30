@@ -1,4 +1,4 @@
-Feature: Run coyote
+Feature: Run helper commands
 
   Scenario: Coyote displays help message
     Given coyote is present locally

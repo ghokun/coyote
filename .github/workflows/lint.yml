@@ -31,5 +31,5 @@ jobs:
           fetch-depth: 0
       - uses: restqa/gherkin-linter-action@0.0.1
         with:
-          path: "features/"
-          config_file: "features/.gherkin-lintrc"
+          path: "e2e/features/"
+          config_file: "e2e/features/.gherkin-lintrc"
