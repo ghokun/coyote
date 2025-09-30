@@ -28,7 +28,7 @@ func TestFeatures(t *testing.T) {
 }
 
 func InitializeTestSuite(ctx *godog.TestSuiteContext) {
-	cmd := exec.Command("go", "build", "./..")
+	cmd := exec.Command("go", "build", "-cover", "./..")
 	if err := cmd.Run(); err != nil {
 		log.Fatal(err)
 	}
