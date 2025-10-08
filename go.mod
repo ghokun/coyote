@@ -58,6 +58,6 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/hashicorp/go-secure-stdlib/base62 v0.1.2
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
-	golang.org/x/oauth2 v0.31.0
+	golang.org/x/oauth2 v0.32.0
 	modernc.org/sqlite v1.39.0
 )
