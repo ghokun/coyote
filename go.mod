@@ -5,7 +5,7 @@ go 1.25.1
 require (
 	github.com/cqroot/prompt v0.9.4
 	github.com/google/uuid v1.6.0
-	github.com/rabbitmq/amqp091-go v1.10.0
+	github.com/rabbitmq/amqp091-go v1.11.0
 	github.com/urfave/cli/v3 v3.8.0
 )
 
