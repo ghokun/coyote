@@ -95,6 +95,7 @@ func main() {
 			},
 		},
 		Action: func(ctx context.Context, cli *cli.Command) error {
+			log.Printf("🚀 Starting coyote (%s)", color.YellowString(Version))
 			conn, err := connect(cli)
 			if err != nil {
 				return err
