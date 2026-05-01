@@ -4,14 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
+	"os"
+	"os/signal"
+
+	"github.com/cqroot/prompt"
+	"github.com/cqroot/prompt/choose"
 	"github.com/fatih/color"
 	failed "github.com/ghokun/coyote/error"
 	"github.com/google/uuid"
+	"github.com/rabbitmq/amqp091-go"
 	"github.com/urfave/cli/v3"
-	"log"
 	_ "modernc.org/sqlite"
-	"os"
-	"os/signal"
 )
 
 var Version = "development"
@@ -46,16 +50,8 @@ func main() {
 		cancel()
 	}()
 
-	go func() {
-		select {
-		case <-signalChan:
-			cancel()
-		case <-ctx.Done():
-		}
-		<-signalChan
-		os.Exit(2)
-	}()
-
+	var ch *amqp091.Channel
+	var queueName string
 	app := &cli.Command{
 		Name:      "coyote",
 		Usage:     "Coyote is a RabbitMQ message sink.",
@@ -111,7 +107,7 @@ func main() {
 				log.Printf("⛓️‍💥 Terminating AMQP connection")
 			}()
 
-			ch, err := conn.Channel()
+			ch, err = conn.Channel()
 			if err != nil {
 				return failed.Because("failed to open a channel:", err)
 			}
@@ -123,7 +119,6 @@ func main() {
 				log.Printf("⛓️‍💥 Terminating AMQP channel")
 			}()
 
-			var queueName string
 			persistent := cli.IsSet("queue")
 			if persistent {
 				queueName = cli.String("queue")
@@ -166,7 +161,10 @@ func main() {
 				if err != nil {
 					return failed.Because("failed to bind to queue:", err)
 				} else {
-					log.Printf("👂 Listening from exchange %s with routing key %s", color.YellowString(exchange), color.YellowString(routingKey))
+					log.Printf("👂 Listening from exchange %s with routing key %s using queue %s",
+						color.YellowString(exchange),
+						color.YellowString(routingKey),
+						color.YellowString(q.Name))
 				}
 			}
 
@@ -259,7 +257,49 @@ func main() {
 		},
 	}
 
+	go func() {
+		select {
+		case <-signalChan:
+			fmt.Print("\r")
+			log.Printf("👋 Received an interrupt signal, shutting down...")
+			if app.IsSet("queue") {
+				promptToDeletePersistentQueue(ch, app.String("queue"))
+			} else {
+				log.Printf("👻 Interceptor queue %s is ephemeral will be deleted by itself", color.YellowString(queueName))
+			}
+			cancel()
+		case <-ctx.Done():
+		}
+		<-signalChan
+		os.Exit(2)
+	}()
+
 	if err := app.Run(ctx, os.Args); err != nil {
 		log.Fatal(err)
+	}
+}
+
+func promptToDeletePersistentQueue(ch *amqp091.Channel, queueName string) {
+	choices := []choose.Choice{
+		{Text: "no", Note: "Keeps the queue and all messages in it"},
+		{Text: "yes", Note: "Deletes the queue and all messages in it"},
+	}
+	id, err := prompt.
+		New().
+		Ask(fmt.Sprintf("Do you want to delete the persistent interceptor queue %s?", color.YellowString(queueName))).
+		AdvancedChoose(choices)
+
+	if err != nil {
+		log.Fatal(failed.Because("failed to prompt for queue deletion", err))
+	}
+	if id == "yes" {
+		_, err := ch.QueueDelete(queueName, false, false, false)
+		if err != nil {
+			log.Fatal(failed.Because("failed to delete interceptor queue", err))
+		} else {
+			log.Printf("🗑️ Deleted persistent interceptor queue %s", color.YellowString(queueName))
+		}
+	} else {
+		log.Printf("💾 Persistent interceptor queue %s is not deleted", color.YellowString(queueName))
 	}
 }
