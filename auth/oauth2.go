@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cqroot/prompt"
@@ -169,40 +170,21 @@ func serveForCallback(conf *oauth2.Config, redirectUrl string, state string, ver
 		return nil, failed.Because("failed to parse redirect url", err)
 	}
 
-	var ch = make(chan bool, 1)
+	ch := make(chan callbackResult, 1)
+	var deliverOnce sync.Once
+	deliver := func(res callbackResult) {
+		// Only the first successful exchange is delivered. Duplicate
+		// callbacks (browser retry/prefetch) are answered with the success
+		// page again but must neither block on a full channel (goroutine
+		// leak) nor overwrite the first result (data race).
+		deliverOnce.Do(func() {
+			ch <- res
+		})
+	}
 	mux := http.NewServeMux()
-	mux.HandleFunc(parsedUrl.Path, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("state") != state {
-			http.Error(w, "State parameter doesn't match", http.StatusBadRequest)
-			return
-		}
-		if errMsg := r.URL.Query().Get("error"); errMsg != "" {
-			desc := r.URL.Query().Get("error_description")
-			http.Error(w, "Authorization server returned error: "+errMsg+" - "+desc, http.StatusBadRequest)
-			return
-		}
-		code := r.URL.Query().Get("code")
-		if code == "" {
-			http.Error(w, "Code parameter missing in callback", http.StatusBadRequest)
-			return
-		}
-
-		token, err = conf.Exchange(context.Background(), code, oauth2.VerifierOption(verifier))
-		if err != nil {
-			http.Error(w, "Failed to exchange code for token: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Display success message
-		w.Header().Set("Content-Type", "text/html")
-		_, err = fmt.Fprint(w, successHtml)
-		if err != nil {
-			log.Println("⚠️ Failed to generate success page:", err)
-		}
-
-		// Notify main goroutine
-		ch <- true
-	})
+	mux.HandleFunc(parsedUrl.Path, newCallbackHandler(state, func(code string) (*oauth2.Token, error) {
+		return conf.Exchange(context.Background(), code, oauth2.VerifierOption(verifier))
+	}, deliver))
 
 	server := &http.Server{
 		Addr:    ":" + parsedUrl.Port(),
@@ -221,18 +203,65 @@ func serveForCallback(conf *oauth2.Config, redirectUrl string, state string, ver
 	}()
 
 	log.Println("🌐 Opening browser for authentication, if browser does not open automatically, please navigate to following URL manually\n\n" + color.YellowString(consentPage) + "\n")
-	err = browser.OpenURL(consentPage)
-	if err != nil {
+	if err := browser.OpenURL(consentPage); err != nil {
 		log.Println("⚠️ Failed to open browser automatically.", err)
 	}
 
 	select {
 	case <-time.After(1 * time.Minute):
-		err = failed.Because("timeout waiting for OAuth 2.0 callback", nil)
-	case <-ch:
+		return nil, failed.Because("timeout waiting for OAuth 2.0 callback", nil)
+	case res := <-ch:
 		log.Println("✅ Authentication successful!")
+		return res.token, nil
 	}
-	return token, nil
+}
+
+// callbackResult carries the outcome of the OAuth callback exchange from the
+// HTTP handler goroutine back to the main flow. Sending the result over the
+// channel (instead of writing shared outer variables from the handler) gives
+// a single synchronization point with no shared mutable state.
+type callbackResult struct {
+	token *oauth2.Token
+}
+
+// newCallbackHandler builds the OAuth callback HTTP handler. Validation
+// failures and token-exchange failures are reported via HTTP errors without
+// delivering a result, so the user can still retry within the auth window.
+// The first successful exchange is passed to deliver exactly once by the
+// caller; duplicate callbacks get the success page again but their results
+// are dropped.
+func newCallbackHandler(state string, exchange func(code string) (*oauth2.Token, error), deliver func(callbackResult)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("state") != state {
+			http.Error(w, "State parameter doesn't match", http.StatusBadRequest)
+			return
+		}
+		if errMsg := r.URL.Query().Get("error"); errMsg != "" {
+			desc := r.URL.Query().Get("error_description")
+			http.Error(w, "Authorization server returned error: "+errMsg+" - "+desc, http.StatusBadRequest)
+			return
+		}
+		code := r.URL.Query().Get("code")
+		if code == "" {
+			http.Error(w, "Code parameter missing in callback", http.StatusBadRequest)
+			return
+		}
+
+		token, err := exchange(code)
+		if err != nil {
+			http.Error(w, "Failed to exchange code for token: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Display success message
+		w.Header().Set("Content-Type", "text/html")
+		if _, err := fmt.Fprint(w, successHtml); err != nil {
+			log.Println("⚠️ Failed to generate success page:", err)
+		}
+
+		// Notify main goroutine
+		deliver(callbackResult{token: token})
+	}
 }
 
 const successHtml = `
