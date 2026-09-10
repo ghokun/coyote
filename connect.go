@@ -26,5 +26,8 @@ func connect(cli *cli.Command) (connection *amqp.Connection, err error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := auth.ValidateAMQPScheme(amqpUrl); err != nil {
+		return nil, err
+	}
 	return amqp.DialTLS(amqpUrl.String(), &tls.Config{InsecureSkipVerify: cli.Bool("insecure")})
 }

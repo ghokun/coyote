@@ -13,6 +13,9 @@ func Basic(cli *cli.Command) (amqpUrl *url.URL, err error) {
 	if err != nil {
 		return nil, failed.Because("failed to parse provided url", err)
 	}
+	if err := ValidateAMQPScheme(amqpUrl); err != nil {
+		return nil, err
+	}
 	username, err := retrieveUsername(amqpUrl)
 	if err != nil {
 		return nil, failed.Because("failed to provide username", err)
