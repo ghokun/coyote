@@ -38,6 +38,12 @@ Same binary acts as CLI client and background daemon, just like docker:
   task specs; memory is runtime truth. `NotifyClose` + exponential backoff
   (1s→30s, 5 tries → `failed`). Ephemeral `coyote.<uuid>` queues recreated
   on restart.
+- **Per-task error isolation (Phase 1 prerequisite):** the current store loop
+  calls `log.Fatal` (i.e. `os.Exit`) on SQLite open/prepare/exec errors
+  (`coyote.go`). Extracted `consumeTask()` must return errors instead: no
+  `log.Fatal`/`os.Exit` in task goroutines. The supervisor records the error
+  in `Task.stats.error`, marks that task `failed`, and keeps all other tasks
+  running.
 - **Signals:** daemon handles `SIGINT`+`SIGTERM` → graceful drain (close
   channels/connections, flush DB). Client `Ctrl-C` only cancels submit/wait.
 - **Layout (proposed):**
