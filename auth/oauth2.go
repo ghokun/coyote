@@ -71,12 +71,10 @@ func OAuth2(cli *cli.Command) (amqpUrl *url.URL, err error) {
 			TokenURL: openIdConfiguration.TokenEndpoint,
 		},
 	}
-	audiance := oauth2.SetAuthURLParam("audience", choice.ID)
-	resource := oauth2.SetAuthURLParam("resource", choice.ID)
 	responseMode := oauth2.SetAuthURLParam("response_mode", "query")
 	state := base62.MustRandom(32)
 	verifier := oauth2.GenerateVerifier()
-	consentPage := conf.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier), audiance, resource, responseMode)
+	consentPage := conf.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier), responseMode)
 
 	// Run web server
 	token, err := serveForCallback(conf, redirectUrl, state, verifier, consentPage)
