@@ -167,6 +167,14 @@ func fetchOpenidConfiguration(oauthProviderUrl string) (config *OpenidConfigurat
 	return config, nil
 }
 
+// callbackBindAddr returns the loopback-only listen address for the OAuth
+// callback server. Binding to 127.0.0.1 (instead of ":port" which listens on
+// all interfaces) keeps the temporary HTTP listener reachable only from the
+// local machine.
+func callbackBindAddr(port string) string {
+	return "127.0.0.1:" + port
+}
+
 func serveForCallback(conf *oauth2.Config, redirectUrl string, state string, verifier string, consentPage string) (token *oauth2.Token, err error) {
 	parsedUrl, err := url.Parse(redirectUrl)
 	if err != nil {
@@ -209,7 +217,7 @@ func serveForCallback(conf *oauth2.Config, redirectUrl string, state string, ver
 	})
 
 	server := &http.Server{
-		Addr:    ":" + parsedUrl.Port(),
+		Addr:    callbackBindAddr(parsedUrl.Port()),
 		Handler: mux,
 	}
 
