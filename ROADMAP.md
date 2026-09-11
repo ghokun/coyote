@@ -20,12 +20,13 @@ Same binary acts as CLI client and background daemon, just like docker:
 
 - **Single binary dispatch:** thin `coyote.go` wiring only; subcommands own
   behavior. Hidden `daemon` command for the background process.
-- **Daemon detection:** socket probe primary (`~/.coyote/coyote.sock`, short
+- **Daemon detection:** socket probe primary (`~/.config/coyote/coyote.sock`,
+  resolved as `$XDG_CONFIG_HOME/coyote` when `XDG_CONFIG_HOME` is set, short
   dial timeout); `daemon.pid` diagnostics-only (pid reuse unsafe).
   Dir `0700`, socket `0600`.
 - **Auto-start:** on `ENOENT`/`ECONNREFUSED`, spawn
   `exec.Command(os.Executable(), "daemon")` with `Setsid:true`,
-  `Stdin:/dev/null`, output to `~/.coyote/daemon.log`, then poll socket.
+  `Stdin:/dev/null`, output to `~/.config/coyote/daemon.log`, then poll socket.
   Unix-only MVP (darwin/linux); error on Windows.
 - **IPC:** Unix domain socket + `net/http` JSON, stdlib only. Rejected:
   raw JSON-over-socket (framing), gRPC (deps/overkill), TCP localhost
@@ -33,7 +34,7 @@ Same binary acts as CLI client and background daemon, just like docker:
 - **Daemon internals:** supervisor `map[taskID]cancelFunc + status`, one
   goroutine per task reusing extracted `consumeTask()` (channel/queue/bind/
   consume + store loop). Per-task AMQP `Connection` (isolation over conn
-  sharing). `~/.coyote/daemon.db` (existing `modernc.org/sqlite`) persists
+  sharing). `~/.config/coyote/daemon.db` (existing `modernc.org/sqlite`) persists
   task specs; memory is runtime truth. `NotifyClose` + exponential backoff
   (1s→30s, 5 tries → `failed`). Ephemeral `coyote.<uuid>` queues recreated
   on restart.
@@ -84,7 +85,7 @@ Each CLI command is a thin HTTP client over the Unix socket.
 - **MVP:** keep per-task `--store` SQLite files, daemon is sole writer (avoids
   `_txlock=exclusive` contention). `fetch` reads through the daemon, never by
   opening the DB directly. No schema migration.
-- **Phase 2:** central `~/.coyote/messages.db` (+ `task_id`) with unified
+- **Phase 2:** central `~/.config/coyote/messages.db` (+ `task_id`) with unified
   `fetch`; `consume --store` remains as legacy export override.
 - `fetch` = `GET /messages` pagination (`limit`/`offset`).
 
@@ -99,7 +100,7 @@ Each CLI command is a thin HTTP client over the Unix socket.
   non-interactive `--yes/--keep-queue/--delete-queue`. `pause` = cancel
   consumer, keep queue; `resume` = redeclare+rebind; `stop` = cancel (+opt
   `QueueDelete`). Ephemeral vs persistent semantics preserved.
-- **Logs:** per-task ring (last ~1000) + `~/.coyote/tasks/<id>.log`; `tail`
+- **Logs:** per-task ring (last ~1000) + `~/.config/coyote/tasks/<id>.log`; `tail`
   in MVP, streaming follow later.
 
 ## Phases
