@@ -151,6 +151,12 @@ func main() {
 					&cli.IntFlag{Name: "offset", Value: 0, Usage: "Result offset."},
 					&cli.BoolFlag{Name: "json", Usage: "Print messages as JSON."},
 					&cli.StringFlag{Name: "store", Usage: "Write fetched messages as JSON to file."},
+					&cli.StringFlag{Name: "exchange", Usage: "Only messages whose exchange contains this substring."},
+					&cli.StringFlag{Name: "routing-key", Usage: "Only messages whose routing key contains this substring."},
+					&cli.StringFlag{Name: "correlation-id", Usage: "Only messages whose correlation id contains this substring."},
+					&cli.StringFlag{Name: "reply-to", Usage: "Only messages whose reply-to contains this substring."},
+					&cli.StringFlag{Name: "headers", Usage: "Only messages whose headers contain this substring."},
+					&cli.StringFlag{Name: "body", Usage: "Only messages whose body contains this substring."},
 				},
 				Action: runFetch,
 			},
@@ -390,9 +396,24 @@ func runFetch(_ context.Context, cmd *cli.Command) error {
 	if err != nil {
 		return err
 	}
-	resp, err := ipc.NewClient().Messages(id, int(cmd.Int("limit")), int(cmd.Int("offset")))
+	filter := api.MessageFilter{
+		Exchange:      cmd.String("exchange"),
+		RoutingKey:    cmd.String("routing-key"),
+		CorrelationID: cmd.String("correlation-id"),
+		ReplyTo:       cmd.String("reply-to"),
+		Headers:       cmd.String("headers"),
+		Body:          cmd.String("body"),
+	}
+	resp, err := ipc.NewClient().Messages(id, api.MessagesQuery{
+		Limit:  int(cmd.Int("limit")),
+		Offset: int(cmd.Int("offset")),
+		Filter: filter,
+	})
 	if err != nil {
 		return hintDaemon(err)
+	}
+	if active := filter.Active(); len(active) > 0 {
+		fmt.Printf("Filter: %s\n", strings.Join(active, ", "))
 	}
 	if out := cmd.String("store"); out != "" {
 		data, err := json.MarshalIndent(resp.Messages, "", "  ")

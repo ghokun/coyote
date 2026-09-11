@@ -184,7 +184,7 @@ func TestMessagesRequiresStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.Messages(task.ID, 10, 0); err == nil {
+	if _, _, err := s.Messages(task.ID, api.MessagesQuery{Limit: 10}); err == nil {
 		t.Fatal("expected error for task without store")
 	}
 }

@@ -125,16 +125,27 @@ func (c *Client) Delete(id string, deleteQueue, purge bool) (api.Task, error) {
 	return t, c.do(http.MethodDelete, "/v1/tasks/"+id, q, nil, &t)
 }
 
-func (c *Client) Messages(id string, limit, offset int) (api.MessagesResponse, error) {
+func (c *Client) Messages(id string, q api.MessagesQuery) (api.MessagesResponse, error) {
 	var r api.MessagesResponse
-	q := url.Values{}
-	if limit > 0 {
-		q.Set("limit", strconv.Itoa(limit))
+	params := url.Values{}
+	if q.Limit > 0 {
+		params.Set("limit", strconv.Itoa(q.Limit))
 	}
-	if offset > 0 {
-		q.Set("offset", strconv.Itoa(offset))
+	if q.Offset > 0 {
+		params.Set("offset", strconv.Itoa(q.Offset))
 	}
-	return r, c.do(http.MethodGet, "/v1/tasks/"+id+"/messages", q, nil, &r)
+	setFilter := func(key, val string) {
+		if val != "" {
+			params.Set(key, val)
+		}
+	}
+	setFilter("exchange", q.Filter.Exchange)
+	setFilter("routing_key", q.Filter.RoutingKey)
+	setFilter("correlation_id", q.Filter.CorrelationID)
+	setFilter("reply_to", q.Filter.ReplyTo)
+	setFilter("headers", q.Filter.Headers)
+	setFilter("body", q.Filter.Body)
+	return r, c.do(http.MethodGet, "/v1/tasks/"+id+"/messages", params, nil, &r)
 }
 
 type LogsResponse struct {

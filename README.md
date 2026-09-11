@@ -25,6 +25,7 @@ coyote consume --url amqps://user@myurl --exchange myexchange=# --store events.s
 coyote list
 coyote logs <task-id> --tail 100
 coyote fetch <task-id> --limit 100
+coyote fetch <task-id> --exchange orders --body shipped
 ```
 
 ```shell

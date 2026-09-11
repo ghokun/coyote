@@ -383,7 +383,7 @@ func (s *Supervisor) Delete(id string, deleteQueue, purge bool) (api.Task, error
 }
 
 // Messages pages the task's SQLite store through the daemon.
-func (s *Supervisor) Messages(id string, limit, offset int) (int, []api.Message, error) {
+func (s *Supervisor) Messages(id string, q api.MessagesQuery) (int, []api.Message, error) {
 	s.mu.Lock()
 	t, ok := s.tasks[id]
 	if !ok {
@@ -395,7 +395,7 @@ func (s *Supervisor) Messages(id string, limit, offset int) (int, []api.Message,
 	if storePath == "" {
 		return 0, nil, api.ErrBadRequest("task has no store configured")
 	}
-	return store.QueryFile(storePath, limit, offset)
+	return store.QueryFile(storePath, q)
 }
 
 // Logs returns the last tail lines of the task log.
