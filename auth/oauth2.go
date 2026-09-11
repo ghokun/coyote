@@ -45,6 +45,9 @@ func OAuth2(cli *cli.Command) (amqpUrl *url.URL, err error) {
 	if err != nil {
 		return nil, failed.Because("failed to parse provided url", err)
 	}
+	if err := ValidateAMQPScheme(amqpUrl); err != nil {
+		return nil, err
+	}
 	oauthConfig, err := fetchAuthConfig(amqpUrl)
 	if err != nil {
 		return nil, err
@@ -88,6 +91,9 @@ func OAuth2(cli *cli.Command) (amqpUrl *url.URL, err error) {
 }
 
 func fetchAuthConfig(amqpUrl *url.URL) (authConfig *OAuthConfig, err error) {
+	if err := ValidateAMQPScheme(amqpUrl); err != nil {
+		return nil, err
+	}
 	var apiScheme string
 	if amqpUrl.Scheme == "amqps" {
 		apiScheme = "https"
