@@ -18,7 +18,7 @@ type TaskService interface {
 	List() []api.Task
 	Transition(id, action string) (api.Task, error)
 	Delete(id string, deleteQueue, purge bool) (api.Task, error)
-	Messages(id string, limit, offset int) (int, []api.Message, error)
+	Messages(id string, q api.MessagesQuery) (int, []api.Message, error)
 	Logs(id string, tail int) ([]string, error)
 }
 
@@ -95,7 +95,19 @@ func NewHandler(s TaskService, onShutdown func()) http.Handler {
 		q := r.URL.Query()
 		limit, _ := strconv.Atoi(q.Get("limit"))
 		offset, _ := strconv.Atoi(q.Get("offset"))
-		total, msgs, err := s.Messages(r.PathValue("id"), limit, offset)
+		mq := api.MessagesQuery{
+			Limit:  limit,
+			Offset: offset,
+			Filter: api.MessageFilter{
+				Exchange:      q.Get("exchange"),
+				RoutingKey:    q.Get("routing_key"),
+				CorrelationID: q.Get("correlation_id"),
+				ReplyTo:       q.Get("reply_to"),
+				Headers:       q.Get("headers"),
+				Body:          q.Get("body"),
+			},
+		}
+		total, msgs, err := s.Messages(r.PathValue("id"), mq)
 		if err != nil {
 			writeErr(w, err)
 			return

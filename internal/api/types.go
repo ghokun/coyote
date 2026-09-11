@@ -73,6 +73,50 @@ type MessagesResponse struct {
 	Messages []Message `json:"messages"`
 }
 
+// MessageFilter constrains which stored messages are returned. Every
+// non-empty field is a case-sensitive substring match; fields combine with
+// AND. An empty filter matches everything.
+type MessageFilter struct {
+	Exchange      string `json:"exchange,omitempty"`
+	RoutingKey    string `json:"routingKey,omitempty"`
+	CorrelationID string `json:"correlationId,omitempty"`
+	ReplyTo       string `json:"replyTo,omitempty"`
+	Headers       string `json:"headers,omitempty"`
+	Body          string `json:"body,omitempty"`
+}
+
+// Active returns the names of the fields that constrain the query.
+func (f MessageFilter) Active() []string {
+	var out []string
+	if f.Exchange != "" {
+		out = append(out, "exchange")
+	}
+	if f.RoutingKey != "" {
+		out = append(out, "routing-key")
+	}
+	if f.CorrelationID != "" {
+		out = append(out, "correlation-id")
+	}
+	if f.ReplyTo != "" {
+		out = append(out, "reply-to")
+	}
+	if f.Headers != "" {
+		out = append(out, "headers")
+	}
+	if f.Body != "" {
+		out = append(out, "body")
+	}
+	return out
+}
+
+// MessagesQuery is a paged, filtered read of a task's store. Total in the
+// response reflects the filtered count so pagination stays coherent.
+type MessagesQuery struct {
+	Limit  int
+	Offset int
+	Filter MessageFilter
+}
+
 type TasksResponse struct {
 	Tasks []Task `json:"tasks"`
 }

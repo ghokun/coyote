@@ -70,9 +70,12 @@ func (s *stubService) Delete(id string, _, _ bool) (api.Task, error) {
 	return t, nil
 }
 
-func (s *stubService) Messages(id string, _, _ int) (int, []api.Message, error) {
+func (s *stubService) Messages(id string, q api.MessagesQuery) (int, []api.Message, error) {
 	if _, ok := s.tasks[id]; !ok {
 		return 0, nil, api.ErrNotFound(id)
+	}
+	if q.Filter.Exchange == "none" {
+		return 0, []api.Message{}, nil
 	}
 	return 1, []api.Message{{ID: 1, Body: "hi"}}, nil
 }
@@ -139,6 +142,27 @@ func TestStatusCodes(t *testing.T) {
 	// Pausing again is a conflict.
 	if rec := do(t, h2, http.MethodPost, "/v1/tasks/task-1/pause", nil); rec.Code != http.StatusConflict {
 		t.Fatalf("second pause code = %d", rec.Code)
+	}
+}
+
+func TestMessagesFilterPassthrough(t *testing.T) {
+	stub := newStub()
+	h := ipc.NewHandler(stub, nil)
+	do(t, h, http.MethodPost, "/v1/tasks", api.CreateTaskRequest{URL: "amqps://u@h", Exchanges: map[string]string{"e": "#"}})
+	rec := do(t, h, http.MethodGet, "/v1/tasks/task-1/messages?exchange=none", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	var resp api.MessagesResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Total != 0 || len(resp.Messages) != 0 {
+		t.Fatalf("expected filtered-empty result, got %+v", resp)
+	}
+	rec = do(t, h, http.MethodGet, "/v1/tasks/task-1/messages?exchange=e&body=hi&limit=5", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code = %d", rec.Code)
 	}
 }
 

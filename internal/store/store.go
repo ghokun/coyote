@@ -60,8 +60,11 @@ func (s *Store) Insert(exchange, routingKey, correlationID, replyTo, headers, bo
 	return nil
 }
 
-// Query returns total count plus one page (id ascending).
-func (s *Store) Query(limit, offset int) (total int, msgs []api.Message, err error) {
+// Query returns the filtered total count plus one page (id ascending).
+// Every non-empty filter field is a case-sensitive substring match (INSTR,
+// so there are no LIKE wildcard surprises); fields combine with AND.
+func (s *Store) Query(q api.MessagesQuery) (total int, msgs []api.Message, err error) {
+	limit, offset := q.Limit, q.Offset
 	if limit <= 0 {
 		limit = 100
 	}
@@ -71,11 +74,15 @@ func (s *Store) Query(limit, offset int) (total int, msgs []api.Message, err err
 	if offset < 0 {
 		offset = 0
 	}
-	if err := s.db.QueryRow(`SELECT COUNT(*) FROM event`).Scan(&total); err != nil {
+	where, args := filterWhere(q.Filter)
+	countSQL := `SELECT COUNT(*) FROM event` + where
+	if err := s.db.QueryRow(countSQL, args...).Scan(&total); err != nil {
 		return 0, nil, failed.Because("failed to count events:", err)
 	}
-	rows, err := s.db.Query(`SELECT id, timestamp, exchange, routing_key, correlation_id, reply_to, headers, body
-		FROM event ORDER BY id ASC LIMIT ? OFFSET ?`, limit, offset)
+	pageSQL := `SELECT id, timestamp, exchange, routing_key, correlation_id, reply_to, headers, body
+		FROM event` + where + ` ORDER BY id ASC LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+	rows, err := s.db.Query(pageSQL, args...)
 	if err != nil {
 		return 0, nil, failed.Because("failed to query events:", err)
 	}
@@ -111,13 +118,45 @@ func (s *Store) Close() error {
 	return nil
 }
 
+// filterWhere builds a parameterized WHERE clause for the filter.
+// INSTR gives literal, case-sensitive substring matching with no wildcard
+// escaping concerns (unlike LIKE).
+func filterWhere(f api.MessageFilter) (string, []any) {
+	var conds []string
+	var args []any
+	add := func(col, val string) {
+		if val != "" {
+			conds = append(conds, "INSTR("+col+", ?) > 0")
+			args = append(args, val)
+		}
+	}
+	add("exchange", f.Exchange)
+	add("routing_key", f.RoutingKey)
+	add("correlation_id", f.CorrelationID)
+	add("reply_to", f.ReplyTo)
+	add("headers", f.Headers)
+	add("body", f.Body)
+	if len(conds) == 0 {
+		return "", nil
+	}
+	return " WHERE " + joinConds(conds), args
+}
+
+func joinConds(conds []string) string {
+	out := conds[0]
+	for _, c := range conds[1:] {
+		out += " AND " + c
+	}
+	return out
+}
+
 // QueryFile is a convenience for the daemon: open read-only, query, close.
-func QueryFile(path string, limit, offset int) (int, []api.Message, error) {
+func QueryFile(path string, q api.MessagesQuery) (int, []api.Message, error) {
 	db, err := sql.Open("sqlite", path+"?mode=ro")
 	if err != nil {
 		return 0, nil, failed.Because("failed to open store for reading:", err)
 	}
 	defer db.Close()
 	s := &Store{db: db}
-	return s.Query(limit, offset)
+	return s.Query(q)
 }
